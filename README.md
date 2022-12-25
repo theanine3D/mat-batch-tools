@@ -26,6 +26,9 @@ Addon for [Blender](https://www.blender.org/) (3.4+) that can perform batch modi
 #### The interface - found in the Material Properties tab
 ![image](https://user-images.githubusercontent.com/88953117/209483586-7d90c484-d886-4b2d-8013-164ac2dcd735.png)
 
+#### Node Unify
+![node unify](https://user-images.githubusercontent.com/88953117/209483715-d8592e98-56a3-4a8d-aa3f-aaf95896e1bb.gif)
+
 #### Automatic creation, assignment, and linking of UV Map nodes for all Image Textures:
 ![uvmap](https://user-images.githubusercontent.com/88953117/209455488-7ef92550-09c1-439a-ae89-39ad8fc48348.gif)
 
