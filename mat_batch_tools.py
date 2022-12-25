@@ -110,10 +110,7 @@ class CopyBakeTargetNode(bpy.types.Operator):
                     # Check if there's an active node
                     if bpy.context.active_object.active_material.node_tree.nodes.active != None:
                         # Check if the selected, active node is actually an Image Texture.
-                        if bpy.context.active_object.active_material.node_tree.nodes.active.type != "TEX_IMAGE":
-                            # Add an error message below if not an Image Texture
-                            pass
-                        else:
+                        if bpy.context.active_object.active_material.node_tree.nodes.active.type == "TEX_IMAGE":
                             if bpy.context.active_object.active_material.node_tree.nodes.active.image != None:
                                 bake_node_preset["image"] = bpy.context.active_object.active_material.node_tree.nodes.active.image.name
                                 bake_node_preset["interpolation"] = bpy.context.active_object.active_material.node_tree.nodes.active.interpolation
@@ -648,7 +645,5 @@ def unregister():
     bpy.utils.unregister_class(MaterialBatchToolsPanel)
 
 
-# This allows you to run the script directly from Blender's Text editor
-# to test the add-on without having to install it.
 if __name__ == "__main__":
     register()
