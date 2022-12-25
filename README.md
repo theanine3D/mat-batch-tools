@@ -1,5 +1,5 @@
 # mat-batch-tools
-Addon for Blender that allows batch modification of many materials and nodes simultaneously, and automates common repetitive tasks on models with many materials
+Addon for Blender that allows batch modification of many materials and nodes simultaneously, and automates common repetitive tasks on models with many materials. Very useful for baking many textures into one - such as with megatextures, texture atlases, etc.
 
 ## Features:
 - Bake Target Node - Copy / paste your own customized Image Texture node into all materials on all selected objects.
