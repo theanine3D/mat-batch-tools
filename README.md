@@ -1,5 +1,5 @@
 # Material Batch Tools
-Addon for [Blender](https://www.blender.org/) (3.4+) that can perform batch modifications of many materials and nodes simultaneously, automating common repetitive tasks on models with many materials. Useful for baking many textures into one - such as with megatextures, texture atlases, etc.
+Addon for [Blender](https://www.blender.org/) (3.4+) that can perform batch modifications of many materials and nodes simultaneously, automating common repetitive tasks on models with many materials. The addon dramatically speeds up the process of preparing models for baking, and baking many textures into one - such as with megatextures, texture atlases, etc.
 
 ## Features:
 - **Bake Target Node** - Copy / paste your own customized Image Texture node into all materials on all selected objects.
