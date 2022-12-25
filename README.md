@@ -14,6 +14,9 @@ Addon for Blender that allows batch modification of many materials and nodes sim
 2. Go into Blender's addon preferences (File → Preferences → Addons)
 3. Click the "Install..." button and browse to mat_batch_tools.py, select it, and press "Install Add-on"
 
+## Notes
+Not every function in this addon is undoable. Keep a backup copy of your blend file just in case you need to restore something.
+
 ## Previews:
 #### The interface - found in the Material Properties tab
 ![image](https://user-images.githubusercontent.com/88953117/209455390-b8bcaa51-363e-462a-ba9f-5e0dbb41e6cc.png)
