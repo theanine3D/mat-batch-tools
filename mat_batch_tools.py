@@ -9,7 +9,7 @@ bl_info = {
     "name": "Material Batch Tools",
     "description": "Batch tools for quickly modifying, copying, and pasting nodes on all materials in selected objects",
     "author": "Theanine3D",
-    "version": (0, 1),
+    "version": (0, 2),
     "blender": (3, 4, 0),
     "category": "Material",
     "location": "Properties -> Material Properties",
@@ -25,6 +25,12 @@ bake_node_preset = {
     "projection_blend": 0.0,
     "extension": "REPEAT",
     "name": "Bake Target Node"
+}
+
+node_unify_settings = {
+    "name": "",
+    "type": "",
+    "material": ""
 }
 
 
@@ -47,6 +53,8 @@ class MatBatchProperties(bpy.types.PropertyGroup):
         name="Filter", description="Only materials that satisfy this filter will be modified", items=[("NOFILTER", 'None', 'No filter. All materials will be modified', 0), ("PRINCIPLEDNODE", 'Principled BSDF Alpha', 'There must be a Principled node in the material, and its "Alpha" input is either connected to another node or is less than 1.000', 1), ("TRANSPARENTNODE", 'Transparent BSDF', 'There must be at least one Transparent BSDF in the material', 2)], default=0)
     AlphaThreshold: bpy.props.FloatProperty(
         name="Clip Threshold", subtype="FACTOR", description="This setting is used only by Alpha Clip", default=0.5, min=0.0, max=1.0)
+    SavedNodeName: bpy.props.StringProperty(
+        name="Copied Node", description="The name of the node from which settings were copied", default="", maxlen=200)
 
 
 # FUNCTION DEFINITIONS
@@ -104,9 +112,9 @@ class CopyBakeTargetNode(bpy.types.Operator):
     def execute(self, context):
 
         # Check if there's actually an active object and active material
-        if bpy.context.active_object is not None and bpy.context.active_object.active_material is not None:
-            if len(bpy.context.active_object.material_slots) is not 0:
-                if len(bpy.context.active_object.active_material.node_tree.nodes) is not 0:
+        if bpy.context.active_object != None and bpy.context.active_object.active_material != None:
+            if len(bpy.context.active_object.material_slots) != 0:
+                if len(bpy.context.active_object.active_material.node_tree.nodes) != 0:
                     # Check if there's an active node
                     if bpy.context.active_object.active_material.node_tree.nodes.active != None:
                         # Check if the selected, active node is actually an Image Texture.
@@ -149,7 +157,7 @@ class PasteBakeTargetNode(bpy.types.Operator):
                     for mat in list_of_mats:
 
                         # Check if there's actually a material in the material slot
-                        if mat is not '':
+                        if mat != '':
 
                             # Find Material Output node
                             reference_node = None
@@ -166,7 +174,7 @@ class PasteBakeTargetNode(bpy.types.Operator):
                                         break
 
                             # If reference node was found:
-                            if reference_node is not None:
+                            if reference_node != None:
 
                                 new_image_node = None
                                 bake_target_exists = False
@@ -254,7 +262,7 @@ class AssignUVMapNode(bpy.types.Operator):
             # For each selected object
             for obj in bpy.context.selected_objects:
                 for mat in obj.material_slots.keys():
-                    if mat is not '':
+                    if mat != '':
                         mats.add(mat)
 
                 # For each material in selected object
@@ -351,7 +359,7 @@ class OverwriteUVSlotName(bpy.types.Operator):
                         name=uvname + ".001")
                     uvslots.new(
                         name=uvname)
-                elif uvslots[uvslot_index-1] is not None:
+                elif uvslots[uvslot_index-1] != None:
                     uvslots[uvslot_index -
                             1].name = uvname
 
@@ -400,7 +408,7 @@ class AssignVCToNodes(bpy.types.Operator):
             # For each selected object
             for obj in bpy.context.selected_objects:
                 for mat in obj.material_slots.keys():
-                    if mat is not '':
+                    if mat != '':
                         mats.add(mat)
 
                 # For each material in selected object
@@ -470,7 +478,7 @@ class SetBlendMode(bpy.types.Operator):
                 for mat in list_of_mats:
 
                     # Check if there's actually a material in the material slot
-                    if mat is not '':
+                    if mat != '':
 
                         # Filter 1 - Principled BSDF with Alpha
                         if filter_mode == "PRINCIPLEDNODE":
@@ -506,6 +514,118 @@ class SetBlendMode(bpy.types.Operator):
         return {'FINISHED'}
 
 
+# Copy Node Settings button
+
+class SetAsTemplateNode(bpy.types.Operator):
+    """Stores the currently active, selected node as a template"""
+    bl_idname = "material.set_as_template_node"
+    bl_label = "Set as Template Node"
+    bl_options = {'REGISTER'}
+
+    def execute(self, context):
+
+        global node_unify_settings
+
+        node_unify_settings = {
+            "name": "",
+            "type": "",
+            "material": ""
+        }
+
+        # Check if there's an active object
+        if bpy.context.active_object != None:
+
+            # Check if there's an active node
+            if bpy.context.active_object.active_material.node_tree.nodes.active != None:
+
+                active_node = bpy.context.active_object.active_material.node_tree.nodes.active
+
+                node_unify_settings["name"] = active_node.name
+                node_unify_settings["type"] = active_node.type
+                node_unify_settings["material"] = bpy.context.active_object.active_material.name
+                bpy.context.scene.MatBatchProperties.SavedNodeName = node_unify_settings[
+                    "name"]
+
+        return {'FINISHED'}
+
+
+# Unify Node Settings button
+
+class UnifyNodeSettings(bpy.types.Operator):
+    """Searches for all nodes of the same type, in all materials on selected objects, and copies the template node's settings into those other nodes' settings. The original template node is not modified and must still exist"""
+    bl_idname = "material.unify_node_settings"
+    bl_label = "Unify Node Settings"
+    bl_options = {'REGISTER'}
+
+    def execute(self, context):
+
+        node_type = node_unify_settings["type"]
+
+        # Check if template node's material still exists:
+        if bpy.data.materials.get(node_unify_settings["material"]) != None:
+
+            # Check if template node still exists:
+            if bpy.data.materials[node_unify_settings["material"]].node_tree.nodes.get(node_unify_settings["name"]) != None:
+
+                template_node = bpy.data.materials[node_unify_settings["material"]
+                                                   ].node_tree.nodes[node_unify_settings["name"]]
+
+                list_of_mats = set()
+
+                # Check if there are any previously copied node settings
+                if node_unify_settings["name"] != "":
+
+                    # Check if any objects are selected
+                    if len(bpy.context.selected_objects) > 0:
+
+                        # For each selected object
+                        for obj in bpy.context.selected_objects:
+
+                            for mat in obj.material_slots.keys():
+                                if mat != '':
+                                    list_of_mats.add(mat)
+
+                            # For each material in selected object
+                            for mat in list_of_mats:
+
+                                # Check if there's actually a material in the material slot
+                                if mat != '':
+
+                                    for node in bpy.data.materials[mat].node_tree.nodes:
+
+                                        # Check if node is of the saved type
+                                        if node.type == node_type:
+
+                                            # Copy and paste inputs from template node
+                                            input_counter = 0
+
+                                            for i in node.inputs:
+
+                                                if hasattr(i, "default_value") and hasattr(template_node.inputs[input_counter], "default_value"):
+
+                                                    i.default_value = template_node.inputs[
+                                                        input_counter].default_value
+                                                    input_counter += 1
+
+                                            # Copy and paste properties from template node, but exclude the properties contained in a "do not use" list
+                                            property_list = list(
+                                                template_node.bl_rna.properties.keys())
+                                            new_property_list = list()
+
+                                            do_not_use = ['rna_type', 'type', 'location', 'width', 'width_hidden', 'height', 'dimensions', 'name', 'label', 'inputs', 'outputs', 'internal_links', 'parent', 'use_custom_color', 'color', 'select', 'show_options',
+                                                          'show_preview', 'hide', 'mute', 'show_texture', 'bl_idname', 'bl_label', 'bl_description', 'bl_icon', 'bl_static_type', 'bl_width_default', 'bl_width_min', 'bl_width_max', 'bl_height_default', 'bl_height_min', 'bl_height_max']
+
+                                            for prop in property_list:
+                                                if prop not in do_not_use:
+                                                    new_property_list.append(
+                                                        prop)
+
+                                            for prop in new_property_list:
+                                                setattr(
+                                                    node, prop, eval(f"template_node.{prop}"))
+
+        return {'FINISHED'}
+
 # End classes
 
 
@@ -518,6 +638,8 @@ def menu_func(self, context):
     self.layout.operator(SetUVSlotAsActive.bl_idname)
     self.layout.operator(AssignVCToNodes.bl_idname)
     self.layout.operator(SetBlendMode.bl_idname)
+    self.layout.operator(SetAsTemplateNode.bl_idname)
+    self.layout.operator(UnifyNodeSettings.bl_idname)
 
 
 # MATERIALS PANEL
@@ -531,7 +653,7 @@ class MaterialBatchToolsPanel(bpy.types.Panel):
 
     @classmethod
     def poll(cls, context):
-        return (context.object is not None)
+        return (context.object != None)
 
     def draw_header(self, context):
         layout = self.layout
@@ -611,6 +733,20 @@ class MaterialBatchToolsPanel(bpy.types.Panel):
                    "AlphaThreshold")
         row15.operator("material.set_blend_mode")
 
+        layout.separator()
+
+        # Node Unify UI
+        box6 = layout.box()
+        box6.label(text="Node Unify")
+        row16 = box6.row()
+        row16.label(text="Saved Node: " +
+                    bpy.context.scene.MatBatchProperties.SavedNodeName)
+        row17 = box6.row()
+        row18 = box6.row()
+
+        row18.operator("material.set_as_template_node")
+        row18.operator("material.unify_node_settings")
+
 # End of classes
 
 
@@ -627,6 +763,8 @@ def register():
     bpy.utils.register_class(AssignVCToNodes)
     bpy.utils.register_class(RenameVertexColorSlot)
     bpy.utils.register_class(SetBlendMode)
+    bpy.utils.register_class(SetAsTemplateNode)
+    bpy.utils.register_class(UnifyNodeSettings)
     bpy.utils.register_class(MaterialBatchToolsPanel)
 
 
@@ -642,6 +780,8 @@ def unregister():
     bpy.utils.unregister_class(AssignVCToNodes)
     bpy.utils.unregister_class(RenameVertexColorSlot)
     bpy.utils.unregister_class(SetBlendMode)
+    bpy.utils.unregister_class(SetAsTemplateNode)
+    bpy.utils.unregister_class(UnifyNodeSettings)
     bpy.utils.unregister_class(MaterialBatchToolsPanel)
 
 
