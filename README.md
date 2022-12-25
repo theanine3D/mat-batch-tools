@@ -1,5 +1,5 @@
 # Material Batch Tools
-Addon for Blender that allows batch modification of many materials and nodes simultaneously, and automates common repetitive tasks on models with many materials. Very useful for baking many textures into one - such as with megatextures, texture atlases, etc.
+Addon for Blender (3.4+) that allows batch modification of many materials and nodes simultaneously, and automates common repetitive tasks on models with many materials. Very useful for baking many textures into one - such as with megatextures, texture atlases, etc.
 
 ## Features:
 - Bake Target Node - Copy / paste your own customized Image Texture node into all materials on all selected objects.
@@ -16,7 +16,8 @@ Addon for Blender that allows batch modification of many materials and nodes sim
 3. Click the "Install..." button and browse to mat_batch_tools.py, select it, and press "Install Add-on"
 
 ## Notes
-Not every function in this addon is undoable. Keep a backup copy of your blend file just in case you need to restore something.
+- Not every function in this addon is undoable. Keep a backup copy of your blend file just in case you need to restore something.
+- The addon was coded for Blender 3.4, but you may be able to run it in older versions, at least as far back as 3.0 or so. Try modifying the "version" code at the top of the py file to force it to run on older versions.
 
 ## Previews:
 #### The interface - found in the Material Properties tab
