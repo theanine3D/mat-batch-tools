@@ -10,7 +10,7 @@ Addon for Blender that allows batch modification of many materials and nodes sim
 - Switch the Blend Mode and Shadow Mode between Opaque, Alpha Clip, and Alpha Blend, in all materials on all selected objects, with an optional filter based on the shader (Principled BSDF or Transparent BSDF) present in the material
 
 ## Installation
-1. Download [mat_batch_tools.py](https://github.com/theanine3D/mat-batch-tools/raw/main/mat_batch_tools.py)
+1. Download [mat_batch_tools.py](https://github.com/theanine3D/mat-batch-tools/raw/main/mat_batch_tools.py) (right click this link and Save As...)
 2. Go into Blender's addon preferences (File → Preferences → Addons)
 3. Click the "Install..." button and browse to mat_batch_tools.py, select it, and press "Install Add-on"
 
