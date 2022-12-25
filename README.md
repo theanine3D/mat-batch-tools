@@ -17,7 +17,7 @@ Addon for Blender (3.4+) that allows batch modification of many materials and no
 
 ## Notes
 - Not every function in this addon is undoable. Keep a backup copy of your blend file just in case you need to restore something.
-- Every single function in this addon affects *all* objects that are currently selected, not just the active object. Make sure you double check which objects you have selected before running any of them!
+- Every single function in this addon affects *all* currently selected objects, not just one object. Make sure you double check which objects you have selected before running any of them.
 - The addon was coded for Blender 3.4, but you may be able to run it in older versions, at least as far back as 3.0 or so. Try modifying the "version" code at the top of the py file to force it to run on older versions.
 
 ## Previews:
