@@ -1,4 +1,4 @@
-# mat-batch-tools
+# Material Batch Tools
 Addon for Blender that allows batch modification of many materials and nodes simultaneously, and automates common repetitive tasks on models with many materials. Very useful for baking many textures into one - such as with megatextures, texture atlases, etc.
 
 ## Features:
