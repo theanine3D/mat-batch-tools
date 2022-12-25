@@ -661,91 +661,92 @@ class MaterialBatchToolsPanel(bpy.types.Panel):
     def draw(self, context):
         layout = self.layout
 
+        # Node Unify UI
+        boxUnify = layout.box()
+        boxUnify.label(text="Node Unify")
+        rowUnify1 = boxUnify.row()
+        rowUnify1.label(text="Saved Node: " +
+                        bpy.context.scene.MatBatchProperties.SavedNodeName)
+        rowUnify2 = boxUnify.row()
+        rowUnify3 = boxUnify.row()
+
+        rowUnify2.operator("material.set_as_template_node")
+        rowUnify3.operator("material.unify_node_settings")
+
+        layout.separator()
+
         # Bake Target Node UI
-        box = layout.box()
-        box.label(text="Bake Target Node")
+        boxBakeTarget = layout.box()
+        boxBakeTarget.label(text="Bake Target Node")
 
-        row0 = box.row()
-        row1 = box.row()
-        row2 = box.row()
+        rowBakeTarget0 = boxBakeTarget.row()
+        rowBakeTarget1 = boxBakeTarget.row()
+        rowBakeTarget2 = boxBakeTarget.row()
 
-        row0.operator("material.copy_bake_target")
-        row0.operator("material.paste_bake_target")
-        row1.operator("material.delete_bake_target")
-        row2.prop(
+        rowBakeTarget0.operator("material.copy_bake_target")
+        rowBakeTarget0.operator("material.paste_bake_target")
+        rowBakeTarget1.operator("material.delete_bake_target")
+        rowBakeTarget2.prop(
             bpy.context.scene.MatBatchProperties, "BakeTargetNodeColorEnable")
-        row2.prop(
+        rowBakeTarget2.prop(
             bpy.context.scene.MatBatchProperties, "BakeTargetNodeColor")
 
         layout.separator()
 
         # UV Map Node UI
-        box2 = layout.box()
-        box2.label(text="UV Maps")
+        boxUVMap1 = layout.box()
+        boxUVMap1.label(text="UV Maps")
 
-        row3 = box2.row()
-        row4 = box2.row()
-        row5 = box2.row()
+        rowUVMap1 = boxUVMap1.row()
+        rowUVMap2 = boxUVMap1.row()
+        rowUVMap3 = boxUVMap1.row()
 
-        row3.prop(bpy.context.scene.MatBatchProperties,
-                  "UVMapNodeTarget")
-        row4.prop(bpy.context.scene.MatBatchProperties,
-                  "UVMapNodeExtensionFilter")
-        row5.operator("material.assign_uv_map_node")
+        rowUVMap1.prop(bpy.context.scene.MatBatchProperties,
+                       "UVMapNodeTarget")
+        rowUVMap2.prop(bpy.context.scene.MatBatchProperties,
+                       "UVMapNodeExtensionFilter")
+        rowUVMap3.operator("material.assign_uv_map_node")
 
-        box3 = box2.box()
-        row6 = box3.row()
-        row7 = box3.row()
-        row8 = box3.row()
+        boxUVMap2 = boxUVMap1.box()
+        rowUVMap4 = boxUVMap2.row()
+        rowUVMap5 = boxUVMap2.row()
+        rowUVMap6 = boxUVMap2.row()
 
         # UV Slot UI
-        row6.prop(bpy.context.scene.MatBatchProperties, "UVSlotIndex")
-        row7.operator("object.overwrite_uv_slot_name")
-        row8.operator("object.set_uv_slot_as_active")\
+        rowUVMap4.prop(bpy.context.scene.MatBatchProperties, "UVSlotIndex")
+        rowUVMap5.operator("object.overwrite_uv_slot_name")
+        rowUVMap6.operator("object.set_uv_slot_as_active")\
 
         layout.separator()
 
         # Vertex Colors UI
-        box4 = layout.box()
-        box4.label(text="Vertex Colors")
-        row9 = box4.row()
-        row10 = box4.row()
-        row11 = box4.row()
+        boxVertexColors = layout.box()
+        boxVertexColors.label(text="Vertex Colors")
+        rowVertexColors1 = boxVertexColors.row()
+        rowVertexColors2 = boxVertexColors.row()
+        rowVertexColors3 = boxVertexColors.row()
 
-        row9.prop(bpy.context.scene.MatBatchProperties, "VCName")
-        row10.operator("material.assign_vc_to_nodes")
-        row11.operator("object.rename_vertex_color")
+        rowVertexColors1.prop(bpy.context.scene.MatBatchProperties, "VCName")
+        rowVertexColors2.operator("material.assign_vc_to_nodes")
+        rowVertexColors3.operator("object.rename_vertex_color")
 
         layout.separator()
 
         # Transparency UI
-        box5 = layout.box()
-        box5.label(text="Transparency")
-        row12 = box5.row()
-        row13 = box5.row()
-        row14 = box5.row()
-        row15 = box5.row()
+        boxTransparency = layout.box()
+        boxTransparency.label(text="Transparency")
+        rowTransparency1 = boxTransparency.row()
+        rowTransparency2 = boxTransparency.row()
+        rowTransparency3 = boxTransparency.row()
+        rowTransparency4 = boxTransparency.row()
 
-        row12.prop(bpy.context.scene.MatBatchProperties, "AlphaBlendMode")
-        row13.prop(bpy.context.scene.MatBatchProperties,
-                   "AlphaBlendFilter")
-        row14.prop(bpy.context.scene.MatBatchProperties,
-                   "AlphaThreshold")
-        row15.operator("material.set_blend_mode")
-
-        layout.separator()
-
-        # Node Unify UI
-        box6 = layout.box()
-        box6.label(text="Node Unify")
-        row16 = box6.row()
-        row16.label(text="Saved Node: " +
-                    bpy.context.scene.MatBatchProperties.SavedNodeName)
-        row17 = box6.row()
-        row18 = box6.row()
-
-        row18.operator("material.set_as_template_node")
-        row18.operator("material.unify_node_settings")
+        rowTransparency1.prop(
+            bpy.context.scene.MatBatchProperties, "AlphaBlendMode")
+        rowTransparency2.prop(bpy.context.scene.MatBatchProperties,
+                              "AlphaBlendFilter")
+        rowTransparency3.prop(bpy.context.scene.MatBatchProperties,
+                              "AlphaThreshold")
+        rowTransparency4.operator("material.set_blend_mode")
 
 # End of classes
 
