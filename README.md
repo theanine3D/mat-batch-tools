@@ -2,6 +2,7 @@
 Addon for [Blender](https://www.blender.org/) (3.4+) that can perform batch modifications of many materials and nodes simultaneously, automating common repetitive tasks on models with many materials. The addon dramatically speeds up the process of preparing models for baking, and baking many textures into one - such as with megatextures, texture atlases, etc.
 
 ## Features:
+- **Unify Nodes** - Sets a selected node as a template, and then applies its settings to all other nodes of the same type, in all materials, in all selected objects. 
 - **Bake Target Node** - Copy / paste your own customized Image Texture node into all materials on all selected objects.
 	- The created Image Texture node is set as "active" automatically, making it ready as a target for baking
 	- The node is always positioned automatically to the right of the Material Output node, for easy finding
@@ -23,7 +24,7 @@ Addon for [Blender](https://www.blender.org/) (3.4+) that can perform batch modi
 
 ## Previews:
 #### The interface - found in the Material Properties tab
-![image](https://user-images.githubusercontent.com/88953117/209455390-b8bcaa51-363e-462a-ba9f-5e0dbb41e6cc.png)
+![image](https://user-images.githubusercontent.com/88953117/209483586-7d90c484-d886-4b2d-8013-164ac2dcd735.png)
 
 #### Automatic creation, assignment, and linking of UV Map nodes for all Image Textures:
 ![uvmap](https://user-images.githubusercontent.com/88953117/209455488-7ef92550-09c1-439a-ae89-39ad8fc48348.gif)
