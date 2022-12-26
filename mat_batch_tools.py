@@ -148,64 +148,65 @@ class PasteBakeTargetNode(bpy.types.Operator):
 
                 # For each selected object
                 for obj in bpy.context.selected_objects:
+                    if obj.type == "MESH":
 
-                    for mat in obj.material_slots.keys():
-                        if mat != '':
-                            list_of_mats.add(mat)
+                        for mat in obj.material_slots.keys():
+                            if mat != '':
+                                list_of_mats.add(mat)
 
-                    # For each material in selected object
-                    for mat in list_of_mats:
+                        # For each material in selected object
+                        for mat in list_of_mats:
 
-                        # Check if there's actually a material in the material slot
-                        if mat != '':
+                            # Check if there's actually a material in the material slot
+                            if mat != '':
 
-                            # Find Material Output node
-                            reference_node = None
-                            for node in bpy.data.materials[mat].node_tree.nodes:
-                                if node.type == "OUTPUT_MATERIAL":
-                                    reference_node = node
-                                    break
-
-                            # If no Material Output node exists, look for an alternative reference node instead
-                            if reference_node is None:
+                                # Find Material Output node
+                                reference_node = None
                                 for node in bpy.data.materials[mat].node_tree.nodes:
-                                    if node.type == "BSDF_PRINCIPLED" or node.type == "EMISSION":
+                                    if node.type == "OUTPUT_MATERIAL":
                                         reference_node = node
                                         break
 
-                            # If reference node was found:
-                            if reference_node != None:
+                                # If no Material Output node exists, look for an alternative reference node instead
+                                if reference_node is None:
+                                    for node in bpy.data.materials[mat].node_tree.nodes:
+                                        if node.type == "BSDF_PRINCIPLED" or node.type == "EMISSION":
+                                            reference_node = node
+                                            break
 
-                                new_image_node = None
-                                bake_target_exists = False
+                                # If reference node was found:
+                                if reference_node != None:
 
-                                # Check if Bake Target Node already exists. If so, reset it.
-                                for node in bpy.data.materials[mat].node_tree.nodes:
-                                    node.select = False
-                                    if "Bake Target Node" in node.name:
-                                        new_image_node = node
-                                        bake_target_exists = True
-                                        break
+                                    new_image_node = None
+                                    bake_target_exists = False
 
-                                if not bake_target_exists:
-                                    # Create Image Texture node if Bake Target Node doesn't already exist
-                                    new_image_node = bpy.data.materials[mat].node_tree.nodes.new(
-                                        'ShaderNodeTexImage')
+                                    # Check if Bake Target Node already exists. If so, reset it.
+                                    for node in bpy.data.materials[mat].node_tree.nodes:
+                                        node.select = False
+                                        if "Bake Target Node" in node.name:
+                                            new_image_node = node
+                                            bake_target_exists = True
+                                            break
 
-                                new_image_node.image = bpy.data.images[bake_node_preset["image"]]
-                                new_image_node.location = mathutils.Vector(
-                                    ((reference_node.location[0] + 180), (reference_node.location[1])))
-                                new_image_node.interpolation = bake_node_preset["interpolation"]
-                                new_image_node.projection = bake_node_preset["projection"]
-                                new_image_node.projection_blend = bake_node_preset["projection_blend"]
-                                new_image_node.extension = bake_node_preset["extension"]
-                                new_image_node.color = bpy.context.scene.MatBatchProperties.BakeTargetNodeColor
-                                new_image_node.use_custom_color = bpy.context.scene.MatBatchProperties.BakeTargetNodeColorEnable
+                                    if not bake_target_exists:
+                                        # Create Image Texture node if Bake Target Node doesn't already exist
+                                        new_image_node = bpy.data.materials[mat].node_tree.nodes.new(
+                                            'ShaderNodeTexImage')
 
-                                new_image_node.name = "Bake Target Node"
-                                new_image_node.label = "Bake Target"
-                                new_image_node.select = True
-                                bpy.data.materials[mat].node_tree.nodes.active = new_image_node
+                                    new_image_node.image = bpy.data.images[bake_node_preset["image"]]
+                                    new_image_node.location = mathutils.Vector(
+                                        ((reference_node.location[0] + 180), (reference_node.location[1])))
+                                    new_image_node.interpolation = bake_node_preset["interpolation"]
+                                    new_image_node.projection = bake_node_preset["projection"]
+                                    new_image_node.projection_blend = bake_node_preset["projection_blend"]
+                                    new_image_node.extension = bake_node_preset["extension"]
+                                    new_image_node.color = bpy.context.scene.MatBatchProperties.BakeTargetNodeColor
+                                    new_image_node.use_custom_color = bpy.context.scene.MatBatchProperties.BakeTargetNodeColorEnable
+
+                                    new_image_node.name = "Bake Target Node"
+                                    new_image_node.label = "Bake Target"
+                                    new_image_node.select = True
+                                    bpy.data.materials[mat].node_tree.nodes.active = new_image_node
 
         return {'FINISHED'}
 
@@ -228,19 +229,21 @@ class DeleteBakeTargetNode(bpy.types.Operator):
 
                 # For each selected object
                 for obj in bpy.context.selected_objects:
-                    for mat in obj.material_slots.keys():
-                        if mat != '':
-                            list_of_mats.add(mat)
+                    if obj.type == "MESH":
 
-                    # For each material in selected object
-                    for mat in list_of_mats:
-                        if mat != '':
-                            # Check if Bake Target Node already exists. If so, delete it.
-                            for node in bpy.data.materials[mat].node_tree.nodes:
-                                if "Bake Target Node" in node.name:
-                                    bpy.data.materials[mat].node_tree.nodes.remove(
-                                        node)
-                                    break
+                        for mat in obj.material_slots.keys():
+                            if mat != '':
+                                list_of_mats.add(mat)
+
+                        # For each material in selected object
+                        for mat in list_of_mats:
+                            if mat != '':
+                                # Check if Bake Target Node already exists. If so, delete it.
+                                for node in bpy.data.materials[mat].node_tree.nodes:
+                                    if "Bake Target Node" in node.name:
+                                        bpy.data.materials[mat].node_tree.nodes.remove(
+                                            node)
+                                        break
 
         return {'FINISHED'}
 
@@ -261,60 +264,62 @@ class AssignUVMapNode(bpy.types.Operator):
 
             # For each selected object
             for obj in bpy.context.selected_objects:
-                for mat in obj.material_slots.keys():
-                    if mat != '':
-                        mats.add(mat)
+                if obj.type == "MESH":
 
-                # For each material in selected object
-                for mat in mats:
+                    for mat in obj.material_slots.keys():
+                        if mat != '':
+                            mats.add(mat)
 
-                    nodetree = bpy.data.materials[mat].node_tree
-                    links = bpy.data.materials[mat].node_tree.links
+                    # For each material in selected object
+                    for mat in mats:
 
-                    if mat != '':
-                        # Look for Image Texture nodes
-                        for node in nodetree.nodes:
-                            new_UV_node = None
-                            reference_node = None
+                        nodetree = bpy.data.materials[mat].node_tree
+                        links = bpy.data.materials[mat].node_tree.links
 
-                            if node.type == "TEX_IMAGE" and node.image:
+                        if mat != '':
+                            # Look for Image Texture nodes
+                            for node in nodetree.nodes:
+                                new_UV_node = None
+                                reference_node = None
 
-                                # Check if Image Texture is in the user's entered format
-                                if node.image.file_format == bpy.context.scene.MatBatchProperties.UVMapNodeExtensionFilter:
+                                if node.type == "TEX_IMAGE" and node.image:
 
-                                    # Check if Image Texture already has a node connected to it
-                                    if node.inputs[0].links:
+                                    # Check if Image Texture is in the user's entered format
+                                    if node.image.file_format == bpy.context.scene.MatBatchProperties.UVMapNodeExtensionFilter:
 
-                                        # If node connected to it is a UV Map node...
-                                        if node.inputs[0].links[0].from_node.type == "UVMAP":
+                                        # Check if Image Texture already has a node connected to it
+                                        if node.inputs[0].links:
 
-                                            # Delete the old UV Map node
-                                            nodetree.nodes.remove(
-                                                node.inputs[0].links[0].from_node)
+                                            # If node connected to it is a UV Map node...
+                                            if node.inputs[0].links[0].from_node.type == "UVMAP":
+
+                                                # Delete the old UV Map node
+                                                nodetree.nodes.remove(
+                                                    node.inputs[0].links[0].from_node)
+                                                reference_node = node
+
+                                            # If the Image Texture has some other kind of node connected... recurvsively search to find the closest UV Map node
+                                            else:
+                                                foundnode = recursive_node_search(
+                                                    node, "UVMAP")
+                                                if foundnode:
+                                                    reference_node = foundnode.outputs[0].links[0].to_node
+                                                    nodetree.nodes.remove(
+                                                        foundnode)
+                                                else:
+                                                    reference_node = node
+                                        else:
                                             reference_node = node
 
-                                        # If the Image Texture has some other kind of node connected... recurvsively search to find the closest UV Map node
-                                        else:
-                                            foundnode = recursive_node_search(
-                                                node, "UVMAP")
-                                            if foundnode:
-                                                reference_node = foundnode.outputs[0].links[0].to_node
-                                                nodetree.nodes.remove(
-                                                    foundnode)
-                                            else:
-                                                reference_node = node
-                                    else:
-                                        reference_node = node
-
-                                    # Create new UV Map node
-                                    new_UV_node = nodetree.nodes.new(
-                                        "ShaderNodeUVMap")
-                                    new_UV_node.name = "Batch UV Map"
-                                    new_UV_node.uv_map = bpy.context.scene.MatBatchProperties.UVMapNodeTarget
-                                    new_UV_node.location = mathutils.Vector(
-                                        ((reference_node.location[0] - 200), (reference_node.location[1] - 150)))
-                                    nodetree.links.new(
-                                        new_UV_node.outputs["UV"], reference_node.inputs[0])
+                                        # Create new UV Map node
+                                        new_UV_node = nodetree.nodes.new(
+                                            "ShaderNodeUVMap")
+                                        new_UV_node.name = "Batch UV Map"
+                                        new_UV_node.uv_map = bpy.context.scene.MatBatchProperties.UVMapNodeTarget
+                                        new_UV_node.location = mathutils.Vector(
+                                            ((reference_node.location[0] - 200), (reference_node.location[1] - 150)))
+                                        nodetree.links.new(
+                                            new_UV_node.outputs["UV"], reference_node.inputs[0])
 
         return {'FINISHED'}
 
@@ -334,34 +339,35 @@ class OverwriteUVSlotName(bpy.types.Operator):
 
             # For each selected object
             for obj in bpy.context.selected_objects:
-                mesh = obj.data
-                uvslots = mesh.uv_layers
-                uvslot_index = int(
-                    bpy.context.scene.MatBatchProperties.UVSlotIndex)
-                uvname = bpy.context.scene.MatBatchProperties.UVMapNodeTarget
+                if obj.type == "MESH":
+                    mesh = obj.data
+                    uvslots = mesh.uv_layers
+                    uvslot_index = int(
+                        bpy.context.scene.MatBatchProperties.UVSlotIndex)
+                    uvname = bpy.context.scene.MatBatchProperties.UVMapNodeTarget
 
-                counter = 0
-                for slot in uvslots:
-                    if slot.name == uvname:
-                        if counter != uvslot_index - 1:
-                            slot.name = slot.name + ".001"
-                    else:
-                        counter += 1
+                    counter = 0
+                    for slot in uvslots:
+                        if slot.name == uvname:
+                            if counter != uvslot_index - 1:
+                                slot.name = slot.name + ".001"
+                        else:
+                            counter += 1
 
-                if len(uvslots) == 0 and uvslot_index == 1:
-                    uvslots.new(
-                        name=uvname)
-                elif len(uvslots) == 1 and uvslot_index == 2:
-                    uvslots.new(
-                        name=uvname)
-                elif len(uvslots) == 0 and uvslot_index == 2:
-                    uvslots.new(
-                        name=uvname + ".001")
-                    uvslots.new(
-                        name=uvname)
-                elif uvslots[uvslot_index-1] != None:
-                    uvslots[uvslot_index -
-                            1].name = uvname
+                    if len(uvslots) == 0 and uvslot_index == 1:
+                        uvslots.new(
+                            name=uvname)
+                    elif len(uvslots) == 1 and uvslot_index == 2:
+                        uvslots.new(
+                            name=uvname)
+                    elif len(uvslots) == 0 and uvslot_index == 2:
+                        uvslots.new(
+                            name=uvname + ".001")
+                        uvslots.new(
+                            name=uvname)
+                    elif uvslots[uvslot_index-1] != None:
+                        uvslots[uvslot_index -
+                                1].name = uvname
 
         return {'FINISHED'}
 
@@ -381,12 +387,13 @@ class SetUVSlotAsActive(bpy.types.Operator):
 
             # For each selected object
             for obj in bpy.context.selected_objects:
-                mesh = obj.data
-                uvslots = mesh.uv_layers
-                uvslot_index = int(
-                    bpy.context.scene.MatBatchProperties.UVSlotIndex)
-                if len(uvslots) > 0:
-                    uvslots.active = uvslots[uvslot_index - 1]
+                if obj.type == "MESH":
+                    mesh = obj.data
+                    uvslots = mesh.uv_layers
+                    uvslot_index = int(
+                        bpy.context.scene.MatBatchProperties.UVSlotIndex)
+                    if len(uvslots) > 0:
+                        uvslots.active = uvslots[uvslot_index - 1]
 
         return {'FINISHED'}
 
@@ -407,15 +414,18 @@ class AssignVCToNodes(bpy.types.Operator):
 
             # For each selected object
             for obj in bpy.context.selected_objects:
-                for mat in obj.material_slots.keys():
-                    if mat != '':
-                        mats.add(mat)
 
-                # For each material in selected object
-                for mat in mats:
-                    for node in bpy.data.materials[mat].node_tree.nodes:
-                        if node.type == "VERTEX_COLOR":
-                            node.layer_name = bpy.context.scene.MatBatchProperties.VCName
+                if obj.type == "MESH":
+
+                    for mat in obj.material_slots.keys():
+                        if mat != '':
+                            mats.add(mat)
+
+                    # For each material in selected object
+                    for mat in mats:
+                        for node in bpy.data.materials[mat].node_tree.nodes:
+                            if node.type == "VERTEX_COLOR":
+                                node.layer_name = bpy.context.scene.MatBatchProperties.VCName
         return {'FINISHED'}
 
 # Rename Vertex Color Slot button
@@ -434,15 +444,17 @@ class RenameVertexColorSlot(bpy.types.Operator):
 
             # For each selected object
             for obj in bpy.context.selected_objects:
-                mesh = obj.data
-                vcslots = mesh.color_attributes
-                vcname = bpy.context.scene.MatBatchProperties.VCName
+                if obj.type == "MESH":
 
-                if len(vcslots) > 0:
-                    vcslots[0].name = vcname
-                else:
-                    vcslots.new(name=vcname, type="FLOAT_COLOR",
-                                domain="POINT")
+                    mesh = obj.data
+                    vcslots = mesh.color_attributes
+                    vcname = bpy.context.scene.MatBatchProperties.VCName
+
+                    if len(vcslots) > 0:
+                        vcslots[0].name = vcname
+                    else:
+                        vcslots.new(name=vcname, type="FLOAT_COLOR",
+                                    domain="POINT")
         return {'FINISHED'}
 
 
@@ -469,47 +481,48 @@ class SetBlendMode(bpy.types.Operator):
 
             # For each selected object
             for obj in bpy.context.selected_objects:
+                if obj.type == "MESH":
 
-                for mat in obj.material_slots.keys():
-                    if mat != '':
-                        list_of_mats.add(mat)
+                    for mat in obj.material_slots.keys():
+                        if mat != '':
+                            list_of_mats.add(mat)
 
-                # For each material in selected object
-                for mat in list_of_mats:
+                    # For each material in selected object
+                    for mat in list_of_mats:
 
-                    # Check if there's actually a material in the material slot
-                    if mat != '':
+                        # Check if there's actually a material in the material slot
+                        if mat != '':
 
-                        # Filter 1 - Principled BSDF with Alpha
-                        if filter_mode == "PRINCIPLEDNODE":
-                            for node in bpy.data.materials[mat].node_tree.nodes:
-                                if node.type == "BSDF_PRINCIPLED":
-                                    if len(node.inputs[21].links) > 0:
-                                        bpy.data.materials[mat].blend_method = alpha_mode
-                                        bpy.data.materials[mat].shadow_method = shadow_mode
-                                        bpy.data.materials[mat].alpha_threshold = alpha_threshold
-                                        break
-                                    else:
-                                        if node.inputs[21].default_value < 1.0:
+                            # Filter 1 - Principled BSDF with Alpha
+                            if filter_mode == "PRINCIPLEDNODE":
+                                for node in bpy.data.materials[mat].node_tree.nodes:
+                                    if node.type == "BSDF_PRINCIPLED":
+                                        if len(node.inputs[21].links) > 0:
                                             bpy.data.materials[mat].blend_method = alpha_mode
                                             bpy.data.materials[mat].shadow_method = shadow_mode
                                             bpy.data.materials[mat].alpha_threshold = alpha_threshold
                                             break
+                                        else:
+                                            if node.inputs[21].default_value < 1.0:
+                                                bpy.data.materials[mat].blend_method = alpha_mode
+                                                bpy.data.materials[mat].shadow_method = shadow_mode
+                                                bpy.data.materials[mat].alpha_threshold = alpha_threshold
+                                                break
 
-                        # Filter 2 - Transparent BSDF
-                        elif filter_mode == "TRANSPARENTNODE":
-                            for node in bpy.data.materials[mat].node_tree.nodes:
-                                if node.type == "BSDF_TRANSPARENT":
-                                    bpy.data.materials[mat].blend_method = alpha_mode
-                                    bpy.data.materials[mat].shadow_method = shadow_mode
-                                    bpy.data.materials[mat].alpha_threshold = alpha_threshold
-                                    break
+                            # Filter 2 - Transparent BSDF
+                            elif filter_mode == "TRANSPARENTNODE":
+                                for node in bpy.data.materials[mat].node_tree.nodes:
+                                    if node.type == "BSDF_TRANSPARENT":
+                                        bpy.data.materials[mat].blend_method = alpha_mode
+                                        bpy.data.materials[mat].shadow_method = shadow_mode
+                                        bpy.data.materials[mat].alpha_threshold = alpha_threshold
+                                        break
 
-                        else:
-                            bpy.data.materials[mat].blend_method = alpha_mode
-                            bpy.data.materials[mat].shadow_method = shadow_mode
-                            bpy.data.materials[mat].alpha_threshold = alpha_threshold
-                            break
+                            else:
+                                bpy.data.materials[mat].blend_method = alpha_mode
+                                bpy.data.materials[mat].shadow_method = shadow_mode
+                                bpy.data.materials[mat].alpha_threshold = alpha_threshold
+                                break
 
         return {'FINISHED'}
 
@@ -580,49 +593,50 @@ class UnifyNodeSettings(bpy.types.Operator):
 
                         # For each selected object
                         for obj in bpy.context.selected_objects:
+                            if obj.type == "MESH":
 
-                            for mat in obj.material_slots.keys():
-                                if mat != '':
-                                    list_of_mats.add(mat)
+                                for mat in obj.material_slots.keys():
+                                    if mat != '':
+                                        list_of_mats.add(mat)
 
-                            # For each material in selected object
-                            for mat in list_of_mats:
+                                # For each material in selected object
+                                for mat in list_of_mats:
 
-                                # Check if there's actually a material in the material slot
-                                if mat != '':
+                                    # Check if there's actually a material in the material slot
+                                    if mat != '':
 
-                                    for node in bpy.data.materials[mat].node_tree.nodes:
+                                        for node in bpy.data.materials[mat].node_tree.nodes:
 
-                                        # Check if node is of the saved type
-                                        if node.type == node_type:
+                                            # Check if node is of the saved type
+                                            if node.type == node_type:
 
-                                            # Copy and paste inputs from template node
-                                            input_counter = 0
+                                                # Copy and paste inputs from template node
+                                                input_counter = 0
 
-                                            for i in node.inputs:
+                                                for i in node.inputs:
 
-                                                if hasattr(i, "default_value") and hasattr(template_node.inputs[input_counter], "default_value"):
+                                                    if hasattr(i, "default_value") and hasattr(template_node.inputs[input_counter], "default_value"):
 
-                                                    i.default_value = template_node.inputs[
-                                                        input_counter].default_value
-                                                    input_counter += 1
+                                                        i.default_value = template_node.inputs[
+                                                            input_counter].default_value
+                                                        input_counter += 1
 
-                                            # Copy and paste properties from template node, but exclude the properties contained in a "do not use" list
-                                            property_list = list(
-                                                template_node.bl_rna.properties.keys())
-                                            new_property_list = list()
+                                                # Copy and paste properties from template node, but exclude the properties contained in a "do not use" list
+                                                property_list = list(
+                                                    template_node.bl_rna.properties.keys())
+                                                new_property_list = list()
 
-                                            do_not_use = ['rna_type', 'type', 'location', 'width', 'width_hidden', 'height', 'dimensions', 'name', 'label', 'inputs', 'outputs', 'internal_links', 'parent', 'use_custom_color', 'color', 'select', 'show_options',
-                                                          'show_preview', 'hide', 'mute', 'show_texture', 'bl_idname', 'bl_label', 'bl_description', 'bl_icon', 'bl_static_type', 'bl_width_default', 'bl_width_min', 'bl_width_max', 'bl_height_default', 'bl_height_min', 'bl_height_max']
+                                                do_not_use = ['rna_type', 'type', 'location', 'width', 'width_hidden', 'height', 'dimensions', 'name', 'label', 'inputs', 'outputs', 'internal_links', 'parent', 'use_custom_color', 'color', 'select', 'show_options',
+                                                              'show_preview', 'hide', 'mute', 'show_texture', 'bl_idname', 'bl_label', 'bl_description', 'bl_icon', 'bl_static_type', 'bl_width_default', 'bl_width_min', 'bl_width_max', 'bl_height_default', 'bl_height_min', 'bl_height_max']
 
-                                            for prop in property_list:
-                                                if prop not in do_not_use:
-                                                    new_property_list.append(
-                                                        prop)
+                                                for prop in property_list:
+                                                    if prop not in do_not_use:
+                                                        new_property_list.append(
+                                                            prop)
 
-                                            for prop in new_property_list:
-                                                setattr(
-                                                    node, prop, eval(f"template_node.{prop}"))
+                                                for prop in new_property_list:
+                                                    setattr(
+                                                        node, prop, eval(f"template_node.{prop}"))
 
         return {'FINISHED'}
 
