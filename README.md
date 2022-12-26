@@ -9,7 +9,7 @@ Addon for [Blender](https://www.blender.org/) (3.4+) that can perform batch modi
 	- Optional color setting allows you to add a color decoration to the node, making it easier to identify
 - **Batch rename** of UV maps and vertex colors on all selected objects at once
 - Automatically add and connect a **UV Map node** (with a specific UV Map set) to all Image Texture nodes, in all materials in all selected objects at once
-	- The UV Map node is added selectively based on a user-specified image format (ie. PNG, HDR). This allows you to, for example, selectively add a "lightmap" UV Map node **only** to any HDR Image Texture nodes
+	- The UV Map node is selectively added based on a user-specified image format (ie. PNG, HDR). This allows you to, for example, selectively add a "lightmap" UV Map node **only** to any HDR Image Texture nodes.
 - Switch between **Opaque, Alpha Clip, and Alpha Blend**, in all materials on all selected objects, with an optional filter based on the shader (Principled BSDF or Transparent BSDF) present in the material
 
 ## Installation
