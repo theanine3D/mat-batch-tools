@@ -264,60 +264,64 @@ class AssignUVMapNode(bpy.types.Operator):
 
             # For each selected object
             for obj in bpy.context.selected_objects:
-                for mat in obj.material_slots.keys():
-                    if mat is not '':
-                        mats.add(mat)
 
-                # For each material in selected object
-                for mat in mats:
+                # Check if object is actually a mesh
+                if obj.type == "MESH":
 
-                    nodetree = bpy.data.materials[mat].node_tree
-                    links = bpy.data.materials[mat].node_tree.links
+                    for mat in obj.material_slots.keys():
+                        if mat is not '':
+                            mats.add(mat)
 
-                    if mat != '':
-                        # Look for Image Texture nodes
-                        for node in nodetree.nodes:
-                            new_UV_node = None
-                            reference_node = None
+                    # For each material in selected object
+                    for mat in mats:
 
-                            if node.type == "TEX_IMAGE" and node.image:
+                        nodetree = bpy.data.materials[mat].node_tree
+                        links = bpy.data.materials[mat].node_tree.links
 
-                                # Check if Image Texture is in the user's entered format
-                                if node.image.file_format == bpy.context.scene.MatBatchProperties.UVMapNodeExtensionFilter:
+                        if mat != '':
+                            # Look for Image Texture nodes
+                            for node in nodetree.nodes:
+                                new_UV_node = None
+                                reference_node = None
 
-                                    # Check if Image Texture already has a node connected to it
-                                    if node.inputs[0].links:
+                                if node.type == "TEX_IMAGE" and node.image:
 
-                                        # If node connected to it is a UV Map node...
-                                        if node.inputs[0].links[0].from_node.type == "UVMAP":
+                                    # Check if Image Texture is in the user's entered format
+                                    if node.image.file_format == bpy.context.scene.MatBatchProperties.UVMapNodeExtensionFilter:
 
-                                            # Delete the old UV Map node
-                                            nodetree.nodes.remove(
-                                                node.inputs[0].links[0].from_node)
+                                        # Check if Image Texture already has a node connected to it
+                                        if node.inputs[0].links:
+
+                                            # If node connected to it is a UV Map node...
+                                            if node.inputs[0].links[0].from_node.type == "UVMAP":
+
+                                                # Delete the old UV Map node
+                                                nodetree.nodes.remove(
+                                                    node.inputs[0].links[0].from_node)
+                                                reference_node = node
+
+                                            # If the Image Texture has some other kind of node connected... recurvsively search to find the closest UV Map node
+                                            else:
+                                                foundnode = recursive_node_search(
+                                                    node, "UVMAP")
+                                                if foundnode:
+                                                    reference_node = foundnode.outputs[0].links[0].to_node
+                                                    nodetree.nodes.remove(
+                                                        foundnode)
+                                                else:
+                                                    reference_node = node
+                                        else:
                                             reference_node = node
 
-                                        # If the Image Texture has some other kind of node connected... recurvsively search to find the closest UV Map node
-                                        else:
-                                            foundnode = recursive_node_search(
-                                                node, "UVMAP")
-                                            if foundnode:
-                                                reference_node = foundnode.outputs[0].links[0].to_node
-                                                nodetree.nodes.remove(
-                                                    foundnode)
-                                            else:
-                                                reference_node = node
-                                    else:
-                                        reference_node = node
-
-                                    # Create new UV Map node
-                                    new_UV_node = nodetree.nodes.new(
-                                        "ShaderNodeUVMap")
-                                    new_UV_node.name = "Batch UV Map"
-                                    new_UV_node.uv_map = bpy.context.scene.MatBatchProperties.UVMapNodeTarget
-                                    new_UV_node.location = mathutils.Vector(
-                                        ((reference_node.location[0] - 200), (reference_node.location[1] - 150)))
-                                    nodetree.links.new(
-                                        new_UV_node.outputs["UV"], reference_node.inputs[0])
+                                        # Create new UV Map node
+                                        new_UV_node = nodetree.nodes.new(
+                                            "ShaderNodeUVMap")
+                                        new_UV_node.name = "Batch UV Map"
+                                        new_UV_node.uv_map = bpy.context.scene.MatBatchProperties.UVMapNodeTarget
+                                        new_UV_node.location = mathutils.Vector(
+                                            ((reference_node.location[0] - 200), (reference_node.location[1] - 150)))
+                                        nodetree.links.new(
+                                            new_UV_node.outputs["UV"], reference_node.inputs[0])
 
         return {'FINISHED'}
 
