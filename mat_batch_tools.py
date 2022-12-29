@@ -2,7 +2,7 @@ import mathutils
 import bpy
 from bpy.utils import(register_class, unregister_class)
 from bpy.types import(Panel, PropertyGroup)
-from bpy.props import(StringProperty,
+from bpy.props import(StringProperty, EnumProperty,
                       FloatProperty, BoolProperty)
 
 bl_info = {
