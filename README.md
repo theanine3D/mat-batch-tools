@@ -14,7 +14,7 @@ Addon for [Blender](https://www.blender.org/) (3.4+) that can perform batch modi
 - **Shader Switch** - instantly swap the Principled BSDF shader with the Emission shader, and vise versa, in all materials in all selected objects. Useful for instantly toggling fullbright on/off on a model.
 
 ## Installation
-1. For the newest, bleeding edge version, download [mat_batch_tools.py](https://github.com/theanine3D/mat-batch-tools/raw/main/mat_batch_tools.py) (right click this link and Save As...) Otherwise, if you want a more stable release, check the [Releases](https://github.com/theanine3D/mat-batch-tools/releases).
+1. For the newest, bleeding edge version, download [mat_batch_tools.py](https://github.com/theanine3D/mat-batch-tools/raw/main/mat_batch_tools.py) (right click this link and Save As...) If you want a more stable release, check the [Releases](https://github.com/theanine3D/mat-batch-tools/releases).
 2. Go into Blender's addon preferences (File → Preferences → Addons)
 3. Click the "Install..." button and browse to mat_batch_tools.py, select it, and press "Install Add-on"
 
