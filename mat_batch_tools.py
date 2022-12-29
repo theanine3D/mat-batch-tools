@@ -868,8 +868,8 @@ class MaterialBatchToolsPanel(bpy.types.Panel):
                               "AlphaThreshold")
         rowTransparency3.enabled = (
             bpy.context.scene.MatBatchProperties.AlphaBlendMode == "CLIP")
-        rowTransparency4.prop(bpy.context.scene.MatBatchProperties,
-                              "AlphaPrincipledRemove")
+        rowTransparency4.prop(
+            bpy.context.scene.MatBatchProperties, "AlphaPrincipledRemove")
         rowTransparency4.enabled = (
             bpy.context.scene.MatBatchProperties.AlphaBlendMode == "OPAQUE")
         rowTransparency5.operator("material.set_blend_mode")
