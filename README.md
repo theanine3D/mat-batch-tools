@@ -35,3 +35,7 @@ Addon for [Blender](https://www.blender.org/) (3.4+) that can perform batch modi
 
 #### Bake Target
 ![bake target](https://user-images.githubusercontent.com/88953117/209455528-a3690ce7-2004-47b0-acf5-56c7c9eac398.gif)
+
+#### Shader Switch
+![shader switch](https://user-images.githubusercontent.com/88953117/209982952-27bddc61-4a7b-4780-a849-b3f85af73a4e.gif)
+
