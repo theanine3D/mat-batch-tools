@@ -9,7 +9,7 @@ bl_info = {
     "name": "Material Batch Tools",
     "description": "Batch tools for quickly modifying, copying, and pasting nodes on all materials in selected objects",
     "author": "Theanine3D",
-    "version": (0, 21),
+    "version": (0, 3),
     "blender": (3, 4, 0),
     "category": "Material",
     "location": "Properties -> Material Properties",
@@ -55,6 +55,8 @@ class MatBatchProperties(bpy.types.PropertyGroup):
         name="Clip Threshold", subtype="FACTOR", description="This setting is used only by Alpha Clip", default=0.5, min=0.0, max=1.0)
     SavedNodeName: bpy.props.StringProperty(
         name="Copied Node", description="The name of the node from which settings were copied", default="", maxlen=200)
+    SwitchShaderTarget: bpy.props.EnumProperty(
+        name="Shader", description="The shader to switch in in all materials in all selected objects to. ie. If you select Principled, any Emission nodes will be switched to Principled", items=[("EMISSION", 'Emission', 'Fullbright / shadeless shader - not affected by scene lighting', 0), ("BSDF_PRINCIPLED", 'Principled BSDF', 'Standard shader in Blender, affected by scene lighting', 1)], default=0)
 
 
 # FUNCTION DEFINITIONS
@@ -324,7 +326,6 @@ class AssignUVMapNode(bpy.types.Operator):
                                             new_UV_node.outputs["UV"], reference_node.inputs[0])
 
         return {'FINISHED'}
-
 
 
 # Overwrite UV Slot Name button
@@ -644,6 +645,88 @@ class UnifyNodeSettings(bpy.types.Operator):
 
         return {'FINISHED'}
 
+
+class SwitchShader(bpy.types.Operator):
+    """Finds all Principled BSDF or Emission shader nodes, in all materials in all selected objects, and switches them to the shader selected above"""
+    bl_idname = "material.switch_shader"
+    bl_label = "Switch Shader"
+    bl_options = {'REGISTER'}
+
+    def execute(self, context):
+
+        list_of_mats = set()
+        old_shader_type = None
+        target_shader_type = bpy.context.scene.MatBatchProperties.SwitchShaderTarget
+        if target_shader_type == "EMISSION":  # If user wants to switch to Emission
+            old_shader_type = "BSDF_PRINCIPLED"
+        else:
+            old_shader_type = "EMISSION"
+
+        # Check if any objects are selected.
+        if len(bpy.context.selected_objects) > 0:
+
+            # For each selected object
+            for obj in bpy.context.selected_objects:
+                if obj.type == "MESH":
+
+                    for mat in obj.material_slots.keys():
+                        if mat != '':
+                            list_of_mats.add(mat)
+
+                    # For each material in selected object
+                    for mat in list_of_mats:
+
+                        # Check if there's actually a material in the material slot
+                        if mat != '':
+                            material = bpy.data.materials[mat]
+
+                            # Find the other shader
+                            old_shaders = []
+                            for node in bpy.data.materials[mat].node_tree.nodes:
+                                if node.type == old_shader_type:
+                                    old_shaders.append(node)
+                                    break
+
+                            # If the old shader wasn't found, skip this material and continue to the next material
+                            if len(old_shaders) == 0:
+                                continue
+
+                            # If opposite shader was found:
+                            else:
+
+                                for old_shader in old_shaders:
+
+                                    new_shader = None
+                                    input_node_socket = None
+                                    output_node_socket = None
+
+                                    if len(old_shader.inputs[0].links) > 0:
+                                        input_node_socket = old_shader.inputs[0].links[0].from_socket
+                                    if len(old_shader.outputs[0].links) > 0:
+                                        output_node_socket = old_shader.outputs[0].links[0].to_socket
+
+                                    # Create new shader
+                                    if target_shader_type == "BSDF_PRINCIPLED":
+                                        new_shader = bpy.data.materials[mat].node_tree.nodes.new(
+                                            "ShaderNodeBsdfPrincipled")
+
+                                    if target_shader_type == "EMISSION":
+                                        new_shader = bpy.data.materials[mat].node_tree.nodes.new(
+                                            "ShaderNodeEmission")
+
+                                    # Place the new shader in the old shader's location
+                                    new_shader.location = old_shader.location
+                                    if len(old_shader.inputs[0].links) > 0:
+                                        material.node_tree.links.new(
+                                            new_shader.inputs[0], input_node_socket)
+                                    if len(old_shader.outputs[0].links) > 0:
+                                        material.node_tree.links.new(
+                                            output_node_socket, new_shader.outputs[0])
+                                    material.node_tree.nodes.remove(old_shader)
+
+        return {'FINISHED'}
+
+
 # End classes
 
 
@@ -658,6 +741,7 @@ def menu_func(self, context):
     self.layout.operator(SetBlendMode.bl_idname)
     self.layout.operator(SetAsTemplateNode.bl_idname)
     self.layout.operator(UnifyNodeSettings.bl_idname)
+    self.layout.operator(SwitchShader.bl_idname)
 
 
 # MATERIALS PANEL
@@ -766,6 +850,17 @@ class MaterialBatchToolsPanel(bpy.types.Panel):
                               "AlphaThreshold")
         rowTransparency4.operator("material.set_blend_mode")
 
+        # Switch Shader UI
+        boxSwitchShader = layout.box()
+        boxSwitchShader.label(text="Switch Shader")
+        rowSwitchShader1 = boxSwitchShader.row()
+        rowSwitchShader2 = boxSwitchShader.row()
+
+        rowSwitchShader1.prop(
+            bpy.context.scene.MatBatchProperties, "SwitchShaderTarget")
+        rowSwitchShader2.operator("material.switch_shader")
+
+
 # End of classes
 
 
@@ -784,6 +879,7 @@ def register():
     bpy.utils.register_class(SetBlendMode)
     bpy.utils.register_class(SetAsTemplateNode)
     bpy.utils.register_class(UnifyNodeSettings)
+    bpy.utils.register_class(SwitchShader)
     bpy.utils.register_class(MaterialBatchToolsPanel)
 
 
@@ -801,6 +897,7 @@ def unregister():
     bpy.utils.unregister_class(SetBlendMode)
     bpy.utils.unregister_class(SetAsTemplateNode)
     bpy.utils.unregister_class(UnifyNodeSettings)
+    bpy.utils.unregister_class(SwitchShader)
     bpy.utils.unregister_class(MaterialBatchToolsPanel)
 
 
