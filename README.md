@@ -2,7 +2,7 @@
 Addon for [Blender](https://www.blender.org/) (3.4+) that can perform batch modifications of many materials and nodes simultaneously, automating common repetitive tasks on models with many materials. The addon dramatically speeds up the process of preparing models for baking, especially when baking many textures into one - such as with megatextures, texture atlases, etc.
 
 ## Features:
-- **Node Unify** - Set a selected node as a template, and then apply its settings to all other nodes of the same type, in all materials, in all selected objects. 
+- **Node Unify** - Set a selected node as a template, and then apply its settings to all other nodes of the same type, in all materials, in all selected objects.
 - **Bake Target Node** - Copy / paste your own customized Image Texture node into all materials on all selected objects.
 	- The created Image Texture node is set as "active" automatically, making it ready as a target for baking
 	- The node is always positioned automatically to the right of the Material Output node, for easy finding
@@ -11,6 +11,7 @@ Addon for [Blender](https://www.blender.org/) (3.4+) that can perform batch modi
 - Automatically add and connect a **UV Map node** (with a specific UV Map set) to all Image Texture nodes, in all materials in all selected objects at once
 	- The UV Map node is selectively added based on a user-specified image format (ie. PNG, HDR). This allows you to, for example, selectively add a "lightmap" UV Map node **only** to any HDR Image Texture nodes.
 - Switch between **Opaque, Alpha Clip, and Alpha Blend**, in all materials on all selected objects, with an optional filter based on the shader (Principled BSDF or Transparent BSDF) present in the material
+- **Shader Switch** - instantly swap any Principled BSDF shader with the Emission shader, and vise versa, in all materials in all selected objects.
 
 ## Installation
 1. Download [mat_batch_tools.py](https://github.com/theanine3D/mat-batch-tools/raw/main/mat_batch_tools.py) (right click this link and Save As...)
