@@ -789,6 +789,8 @@ class MaterialBatchToolsPanel(bpy.types.Panel):
 
         rowUnify2.operator("material.set_as_template_node")
         rowUnify3.operator("material.unify_node_settings")
+        rowUnify3.enabled = (
+            bpy.context.scene.MatBatchProperties.SavedNodeName != "")
 
         layout.separator()
 
@@ -864,8 +866,12 @@ class MaterialBatchToolsPanel(bpy.types.Panel):
                               "AlphaBlendFilter")
         rowTransparency3.prop(bpy.context.scene.MatBatchProperties,
                               "AlphaThreshold")
+        rowTransparency3.enabled = (
+            bpy.context.scene.MatBatchProperties.AlphaBlendMode == "CLIP")
         rowTransparency4.prop(bpy.context.scene.MatBatchProperties,
                               "AlphaPrincipledRemove")
+        rowTransparency4.enabled = (
+            bpy.context.scene.MatBatchProperties.AlphaBlendMode == "OPAQUE")
         rowTransparency5.operator("material.set_blend_mode")
 
         # Switch Shader UI
