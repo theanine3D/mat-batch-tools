@@ -53,6 +53,8 @@ class MatBatchProperties(bpy.types.PropertyGroup):
         name="Filter", description="Only materials that satisfy this filter will be modified", items=[("NOFILTER", 'None', 'No filter. All materials will be modified', 0), ("PRINCIPLEDNODE", 'Principled BSDF Alpha', 'There must be a Principled node in the material, and its "Alpha" input is either connected to another node or is less than 1.000', 1), ("TRANSPARENTNODE", 'Transparent BSDF', 'There must be at least one Transparent BSDF in the material', 2)], default=0)
     AlphaThreshold: bpy.props.FloatProperty(
         name="Clip Threshold", subtype="FACTOR", description="This setting is used only by Alpha Clip", default=0.5, min=0.0, max=1.0)
+    AlphaPrincipledRemove: bpy.props.BoolProperty(
+        name="Remove Principled BSDF Alpha", description="If this option is enabled, and the Blend Mode is set to Opaque, any node connected to a Principled BSDF's 'Alpha' input will be disconnected, and its Alpha setting will be set to 1.0", default=False)
     SavedNodeName: bpy.props.StringProperty(
         name="Copied Node", description="The name of the node from which settings were copied", default="", maxlen=200)
     SwitchShaderTarget: bpy.props.EnumProperty(
@@ -497,6 +499,19 @@ class SetBlendMode(bpy.types.Operator):
                         # Check if there's actually a material in the material slot
                         if mat != '':
 
+                            principled_nodes = []
+                            for node in bpy.data.materials[mat].node_tree.nodes:
+                                if node.type == "BSDF_PRINCIPLED":
+                                    principled_nodes.append(node)
+
+                            # If user also wants to remove any alpha from the Principled node itself too
+                            if bpy.context.scene.MatBatchProperties.AlphaPrincipledRemove == True and alpha_mode == "OPAQUE":
+                                for node in principled_nodes:
+                                    if len(node.inputs[21].links) > 0:
+                                        bpy.data.materials[mat].node_tree.links.remove(
+                                            node.inputs[21].links[0])
+                                    node.inputs[21].default_value = 1.0
+
                             # Filter 1 - Principled BSDF with Alpha
                             if filter_mode == "PRINCIPLEDNODE":
                                 for node in bpy.data.materials[mat].node_tree.nodes:
@@ -841,6 +856,7 @@ class MaterialBatchToolsPanel(bpy.types.Panel):
         rowTransparency2 = boxTransparency.row()
         rowTransparency3 = boxTransparency.row()
         rowTransparency4 = boxTransparency.row()
+        rowTransparency5 = boxTransparency.row()
 
         rowTransparency1.prop(
             bpy.context.scene.MatBatchProperties, "AlphaBlendMode")
@@ -848,7 +864,9 @@ class MaterialBatchToolsPanel(bpy.types.Panel):
                               "AlphaBlendFilter")
         rowTransparency3.prop(bpy.context.scene.MatBatchProperties,
                               "AlphaThreshold")
-        rowTransparency4.operator("material.set_blend_mode")
+        rowTransparency4.prop(bpy.context.scene.MatBatchProperties,
+                              "AlphaPrincipledRemove")
+        rowTransparency5.operator("material.set_blend_mode")
 
         # Switch Shader UI
         boxSwitchShader = layout.box()
