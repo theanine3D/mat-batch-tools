@@ -56,7 +56,7 @@ class MatBatchProperties(bpy.types.PropertyGroup):
     SavedNodeName: bpy.props.StringProperty(
         name="Copied Node", description="The name of the node from which settings were copied", default="", maxlen=200)
     SwitchShaderTarget: bpy.props.EnumProperty(
-        name="Shader", description="The shader to switch in in all materials in all selected objects to. ie. If you select Principled, any Emission nodes will be switched to Principled", items=[("EMISSION", 'Emission', 'Fullbright / shadeless shader - not affected by scene lighting', 0), ("BSDF_PRINCIPLED", 'Principled BSDF', 'Standard shader in Blender, affected by scene lighting', 1)], default=0)
+        name="Shader", description="The shader to switch in all materials in all selected objects to. For example, if you select Principled, any Emission nodes will be switched to Principled", items=[("EMISSION", 'Emission', 'Fullbright / shadeless shader - not affected by scene lighting', 0), ("BSDF_PRINCIPLED", 'Principled BSDF', 'Standard shader in Blender, affected by scene lighting', 1)], default=0)
 
 
 # FUNCTION DEFINITIONS
