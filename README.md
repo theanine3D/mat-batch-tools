@@ -11,7 +11,7 @@ Addon for [Blender](https://www.blender.org/) (3.4+) that can perform batch modi
 - Automatically add and connect a **UV Map node** (with a specific UV Map set) to all Image Texture nodes, in all materials in all selected objects at once
 	- The UV Map node is selectively added based on a user-specified image format (ie. PNG, HDR). This allows you to, for example, selectively add a "lightmap" UV Map node **only** to any HDR Image Texture nodes.
 - Switch between **Opaque, Alpha Clip, and Alpha Blend**, in all materials on all selected objects, with an optional filter based on the shader (Principled BSDF or Transparent BSDF) present in the material
-- **Shader Switch** - instantly swap the Principled BSDF shader with the Emission shader, and vise versa, in all materials in all selected objects.
+- **Shader Switch** - instantly swap the Principled BSDF shader with the Emission shader, and vise versa, in all materials in all selected objects. Useful as an instant on/off toggle for fullbright.
 
 ## Installation
 1. Download [mat_batch_tools.py](https://github.com/theanine3D/mat-batch-tools/raw/main/mat_batch_tools.py) (right click this link and Save As...)
