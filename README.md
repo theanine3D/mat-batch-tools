@@ -25,7 +25,7 @@ Addon for [Blender](https://www.blender.org/) (3.4+) that can perform batch modi
 
 ## Previews:
 #### The interface - found in the Material Properties tab
-![image](https://user-images.githubusercontent.com/88953117/209483586-7d90c484-d886-4b2d-8013-164ac2dcd735.png)
+![image](https://user-images.githubusercontent.com/88953117/209989930-9a326837-7ecb-4dd4-af7f-a51e55ac242e.png)
 
 #### Node Unify
 ![node unify](https://user-images.githubusercontent.com/88953117/209483715-d8592e98-56a3-4a8d-aa3f-aaf95896e1bb.gif)
