@@ -19,8 +19,8 @@ Addon for [Blender](https://www.blender.org/) (3.4+) that can perform batch modi
 3. Click the "Install..." button and browse to mat_batch_tools.py, select it, and press "Install Add-on"
 
 ## Notes
-- Not every function in this addon is undoable. Keep a backup copy of your blend file just in case you need to restore something.
-- Every single function in this addon affects *all* currently selected mesh objects, not just one object. Make sure you double check which objects you have selected before running any of them.
+- Not every operator in this addon is undoable. Keep a backup copy of your blend file just in case you need to restore something.
+- Every single operator in this addon affects *all* currently selected mesh objects, not just one object. Make sure you double check which objects you have selected before running any of them.
 - The addon was coded for Blender 3.4, but you may be able to run it in older versions, at least as far back as 3.0 or so. Try modifying the "version" code at the top of the py file to force it to run on older versions.
 
 ## Previews:
