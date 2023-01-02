@@ -10,7 +10,7 @@ bl_info = {
     "description": "Batch tools for quickly modifying, copying, and pasting nodes on all materials in selected objects",
     "author": "Theanine3D",
     "version": (0, 5),
-    "blender": (3, 4, 0),
+    "blender": (3, 0, 0),
     "category": "Material",
     "location": "Properties -> Material Properties",
     "support": "COMMUNITY"
@@ -465,6 +465,7 @@ class AssignVCToNodes(bpy.types.Operator):
 
                             if node.type == "VERTEX_COLOR":
                                 node.layer_name = bpy.context.scene.MatBatchProperties.VCName
+
         return {'FINISHED'}
 
 # Rename Vertex Color Slot operator
@@ -478,6 +479,9 @@ class RenameVertexColorSlot(bpy.types.Operator):
 
     def execute(self, context):
 
+        # Blender 3.2 renamed "vertex colors" to "color attributes," so let's check the version beforehand
+        useColorAttributes = (bpy.app.version >= (3, 2, 0))
+
         # Check if any objects are selected
         if check_for_selected(True) != False:
 
@@ -486,14 +490,21 @@ class RenameVertexColorSlot(bpy.types.Operator):
                 if obj.type == "MESH":
 
                     mesh = obj.data
-                    vcslots = mesh.color_attributes
+                    if useColorAttributes:
+                        vcslots = mesh.color_attributes
+                    else:
+                        vcslots = mesh.vertex_colors
                     vcname = bpy.context.scene.MatBatchProperties.VCName
 
                     if len(vcslots) > 0:
                         vcslots[0].name = vcname
                     else:
-                        vcslots.new(name=vcname, type="FLOAT_COLOR",
-                                    domain="POINT")
+                        if useColorAttributes:
+                            vcslots.new(name=vcname, type="FLOAT_COLOR",
+                                        domain="POINT")
+                        else:
+                            vcslots.new(name=vcname)
+
         return {'FINISHED'}
 
 
