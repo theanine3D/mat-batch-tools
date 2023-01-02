@@ -59,6 +59,8 @@ class MatBatchProperties(bpy.types.PropertyGroup):
         name="Copied Node", description="The name of the node from which settings were copied", default="", maxlen=200)
     SwitchShaderTarget: bpy.props.EnumProperty(
         name="Shader", description="The shader to switch in all materials in all selected objects to. For example, if you select Principled, any Emission nodes will be switched to Principled", items=[("EMISSION", 'Emission', 'Fullbright / shadeless shader - not affected by scene lighting', 0), ("BSDF_PRINCIPLED", 'Principled BSDF', 'Standard shader in Blender, affected by scene lighting', 1)], default=0)
+    LightmapTexture: bpy.props.StringProperty(
+        name="Lightmap Image Name", description="The name of a lightmap image texture that has already been previously opened via the Image Editor, in HDR or EXR format", default="lightmap", maxlen=100)
 
 
 # FUNCTION DEFINITIONS
@@ -104,7 +106,7 @@ def recursive_node_search(startnode, end_node_type):
                 continue
 
 
-# Bake Target copy button
+# Bake Target copy operator
 
 
 class CopyBakeTargetNode(bpy.types.Operator):
@@ -133,7 +135,7 @@ class CopyBakeTargetNode(bpy.types.Operator):
         return {'FINISHED'}
 
 
-# Bake Target paste button
+# Bake Target paste operator
 
 class PasteBakeTargetNode(bpy.types.Operator):
     """Paste the Bake Target Node in all materials in selected objects, using the node settings previously copied with Copy button"""
@@ -215,7 +217,7 @@ class PasteBakeTargetNode(bpy.types.Operator):
         return {'FINISHED'}
 
 
-# Bake Target delete button
+# Bake Target delete operator
 
 class DeleteBakeTargetNode(bpy.types.Operator):
     """Delete the Bake Target Node, if present, in all materials in selected objects"""
@@ -251,7 +253,7 @@ class DeleteBakeTargetNode(bpy.types.Operator):
 
         return {'FINISHED'}
 
-# Assign UV Map Node button
+# Assign UV Map Node operator
 
 
 class AssignUVMapNode(bpy.types.Operator):
@@ -330,7 +332,7 @@ class AssignUVMapNode(bpy.types.Operator):
         return {'FINISHED'}
 
 
-# Overwrite UV Slot Name button
+# Overwrite UV Slot Name operator
 
 class OverwriteUVSlotName(bpy.types.Operator):
     """Using the specified UV Map name above, this button will overwrite the name of the UV Map in the specified UV slot, in all selected objects. If UV Map slot doesn't exist, a new UV Map will be created with that name"""
@@ -378,7 +380,7 @@ class OverwriteUVSlotName(bpy.types.Operator):
         return {'FINISHED'}
 
 
-# Set UV Slot as Active button
+# Set UV Slot as Active opterator
 
 class SetUVSlotAsActive(bpy.types.Operator):
     """Sets the currently selected UV Slot above as the 'active' slot in all selected objects. Does not modify the UV map name"""
@@ -403,7 +405,7 @@ class SetUVSlotAsActive(bpy.types.Operator):
 
         return {'FINISHED'}
 
-# Assign Vertex Color to Nodes
+# Assign Vertex Color to Nodes operator
 
 
 class AssignVCToNodes(bpy.types.Operator):
@@ -434,7 +436,7 @@ class AssignVCToNodes(bpy.types.Operator):
                                 node.layer_name = bpy.context.scene.MatBatchProperties.VCName
         return {'FINISHED'}
 
-# Rename Vertex Color Slot button
+# Rename Vertex Color Slot operator
 
 
 class RenameVertexColorSlot(bpy.types.Operator):
@@ -464,7 +466,7 @@ class RenameVertexColorSlot(bpy.types.Operator):
         return {'FINISHED'}
 
 
-# Set Blend Mode button
+# Set Blend Mode operator
 
 class SetBlendMode(bpy.types.Operator):
     """Sets the currently selected Blend Mode above as the Blend & Shadow Mode in all materials, in all selected objects"""
@@ -546,7 +548,7 @@ class SetBlendMode(bpy.types.Operator):
         return {'FINISHED'}
 
 
-# Copy Node Settings button
+# Copy Node Settings operator
 
 class SetAsTemplateNode(bpy.types.Operator):
     """Stores the currently active, selected node as a template"""
@@ -581,7 +583,7 @@ class SetAsTemplateNode(bpy.types.Operator):
         return {'FINISHED'}
 
 
-# Unify Node Settings button
+# Unify Node Settings operator
 
 class UnifyNodeSettings(bpy.types.Operator):
     """Searches for all nodes of the same type, in all materials on selected objects, and copies the template node's settings into those other nodes' settings. The original template node is not modified and must still exist"""
@@ -659,6 +661,8 @@ class UnifyNodeSettings(bpy.types.Operator):
                                                         node, prop, eval(f"template_node.{prop}"))
 
         return {'FINISHED'}
+
+# Shader Switch operator
 
 
 class SwitchShader(bpy.types.Operator):
@@ -742,8 +746,155 @@ class SwitchShader(bpy.types.Operator):
         return {'FINISHED'}
 
 
-# End classes
+# Convert to Lightmapped Material - menu opener
+class Convert2LightmappedMenuOpen(bpy.types.Operator):
+    """Converts all materials, in all selected objects, to a lightmapped material setup"""
+    bl_idname = "material.convert2lightmapped_menu_open"
+    bl_label = "Convert to Lightmapped Material"
+    bl_options = {'REGISTER'}
 
+    def execute(self, context):
+
+        bpy.ops.wm.call_menu(name=Convert2LightmappedMenu.bl_idname)
+
+        return {'FINISHED'}
+
+
+# Convert to Lightmapped Material operator
+
+class Convert2Lightmapped(bpy.types.Operator):
+    """Converts all materials, in all selected objects, to a lightmapped material setup"""
+    bl_idname = "material.convert2lightmapped"
+    bl_label = "Convert"
+    bl_options = {'INTERNAL'}
+
+    def execute(self, context):
+
+        list_of_mats = set()
+
+        # Check if any objects are selected.
+        if len(bpy.context.selected_objects) > 0:
+
+            # For each selected object
+            for obj in bpy.context.selected_objects:
+                if obj.type == "MESH":
+
+                    for mat in obj.material_slots.keys():
+                        if mat != '':
+                            list_of_mats.add(mat)
+
+                    # For each material in selected object
+                    for mat in list_of_mats:
+
+                        # Check if there's actually a material in the material slot
+                        if mat != '':
+
+                            node_tree = bpy.data.materials[mat].node_tree
+
+                            # Find the diffuse image texture node
+                            diffuse = None
+
+                            for node in node_tree.nodes:
+                                if node.type == "TEX_IMAGE":
+                                    if len(node.outputs[0].links) > 0:
+
+                                        for link in node.outputs[0].links:
+
+                                            # Check if Image Texture is connected to a "color" socket," or a Mix node's A and B sockets
+                                            if "Color" in link.to_socket.name or "A" in link.to_socket.name or "B" in link.to_socket.name:
+                                                diffuse = node
+                                                break
+
+                                if diffuse != None:
+                                    break
+
+                            # If diffuse was found:
+                            if diffuse != None:
+                                if bpy.context.scene.MatBatchProperties.LightmapTexture in bpy.data.images.keys():
+                                    lightmap = bpy.data.images[bpy.context.scene.MatBatchProperties.LightmapTexture]
+                                else:
+                                    break
+
+                                material_output = None
+                                emission = None
+                                lightmap_node = None
+                                lightmap_uv = None
+                                mix_rgb = None
+                                diffuse.name = "Diffuse Texture"
+                                diffuse.label = "Diffuse Texture"
+                                mixsocket_index_diffuse = 6
+                                mixsocket_index_lightmap = 7
+                                mixoutput_index_lightmap = 2
+
+                                # Delete all nodes to the right of the diffuse image texture node
+                                for node in node_tree.nodes:
+                                    if node.location[0] > diffuse.location[0] + 200:
+                                        node_tree.nodes.remove(
+                                            node)
+
+                                # Mix - for compatibility with Blender <3.4 the MixRGB node is used.
+                                if bpy.app.version >= (3, 4, 0):
+                                    mix_rgb = node_tree.nodes.new(
+                                        'ShaderNodeMix')
+                                    mix_rgb.data_type = "RGBA"
+                                    mix_rgb.clamp_factor = False
+                                else:
+                                    mix_rgb = node_tree.nodes.new(
+                                        'ShaderNodeMixRGB')
+                                    mix_rgb.use_clamp = False
+                                    mixsocket_index_diffuse = 1
+                                    mixsocket_index_lightmap = 2
+                                    mixoutput_index_lightmap = 0
+
+                                mix_rgb.location = mathutils.Vector(
+                                    ((diffuse.location[0] + 330), (diffuse.location[1] - 140)))
+                                mix_rgb.blend_type = "MULTIPLY"
+                                mix_rgb.inputs[0].default_value = 1.0
+                                node_tree.links.new(
+                                    mix_rgb.inputs[mixsocket_index_diffuse], diffuse.outputs[0])
+
+                                # Emission
+                                emission = node_tree.nodes.new(
+                                    'ShaderNodeEmission')
+                                emission.location = mathutils.Vector(
+                                    ((mix_rgb.location[0] + 200), (mix_rgb.location[1])))
+                                node_tree.links.new(
+                                    emission.inputs[0], mix_rgb.outputs[mixoutput_index_lightmap])
+
+                                # Material Output
+                                material_output = node_tree.nodes.new(
+                                    'ShaderNodeOutputMaterial')
+                                material_output.location = mathutils.Vector(
+                                    ((emission.location[0] + 200), (emission.location[1])))
+                                node_tree.links.new(
+                                    material_output.inputs[0], emission.outputs[0])
+
+                                # Lightmap Image Texture
+                                lightmap_node = node_tree.nodes.new(
+                                    'ShaderNodeTexImage')
+                                lightmap_node.name = "Lightmap Texture"
+                                lightmap_node.label = "Lightmap Texture"
+                                lightmap_node.image = lightmap
+                                lightmap_node.location = mathutils.Vector(
+                                    ((diffuse.location[0]), (diffuse.location[1]-290)))
+                                node_tree.links.new(
+                                    mix_rgb.inputs[mixsocket_index_lightmap], lightmap_node.outputs[0])
+
+                                # UV Map node for lightmap
+                                lightmap_uv = node_tree.nodes.new(
+                                    'ShaderNodeUVMap')
+                                lightmap_uv.name = "Lightmap UV"
+                                lightmap_uv.label = "Lightmap UV"
+                                lightmap_uv.uv_map = "lightmap"
+                                lightmap_uv.location = mathutils.Vector(
+                                    ((lightmap_node.location[0]-200), (lightmap_node.location[1])))
+                                node_tree.links.new(
+                                    lightmap_node.inputs[0], lightmap_uv.outputs[0])
+
+        return {'FINISHED'}
+
+
+# End classes
 
 def menu_func(self, context):
     self.layout.operator(PasteBakeTargetNode.bl_idname)
@@ -757,9 +908,10 @@ def menu_func(self, context):
     self.layout.operator(SetAsTemplateNode.bl_idname)
     self.layout.operator(UnifyNodeSettings.bl_idname)
     self.layout.operator(SwitchShader.bl_idname)
-
+    self.layout.operator(Convert2LightmappedMenuOpen.bl_idname)
 
 # MATERIALS PANEL
+
 
 class MaterialBatchToolsPanel(bpy.types.Panel):
     bl_label = 'Material Batch Tools'
@@ -768,7 +920,7 @@ class MaterialBatchToolsPanel(bpy.types.Panel):
     bl_region_type = 'WINDOW'
     bl_context = 'material'
 
-    @classmethod
+    @ classmethod
     def poll(cls, context):
         return (context.object != None)
 
@@ -884,6 +1036,19 @@ class MaterialBatchToolsPanel(bpy.types.Panel):
             bpy.context.scene.MatBatchProperties, "SwitchShaderTarget")
         rowSwitchShader2.operator("material.switch_shader")
 
+# Convert to Lightmapped menu
+
+
+class Convert2LightmappedMenu(bpy.types.Menu):
+    bl_label = "Convert to Lightmapped Material"
+    bl_idname = "OBJECT_MT_convert2lightmapped_menu"
+
+    def draw(self, context):
+        layout = self.layout
+        layout.prop(
+            bpy.context.scene.MatBatchProperties, "LightmapTexture")
+        layout.separator()
+        layout.operator("material.convert2lightmapped")
 
 # End of classes
 
@@ -904,6 +1069,9 @@ def register():
     bpy.utils.register_class(SetAsTemplateNode)
     bpy.utils.register_class(UnifyNodeSettings)
     bpy.utils.register_class(SwitchShader)
+    bpy.utils.register_class(Convert2Lightmapped)
+    bpy.utils.register_class(Convert2LightmappedMenu)
+    bpy.utils.register_class(Convert2LightmappedMenuOpen)
     bpy.utils.register_class(MaterialBatchToolsPanel)
 
 
@@ -922,6 +1090,9 @@ def unregister():
     bpy.utils.unregister_class(SetAsTemplateNode)
     bpy.utils.unregister_class(UnifyNodeSettings)
     bpy.utils.unregister_class(SwitchShader)
+    bpy.utils.unregister_class(Convert2Lightmapped)
+    bpy.utils.unregister_class(Convert2LightmappedMenu)
+    bpy.utils.unregister_class(Convert2LightmappedMenuOpen)
     bpy.utils.unregister_class(MaterialBatchToolsPanel)
 
 
