@@ -1,5 +1,5 @@
 # Material Batch Tools
-Addon for [Blender](https://www.blender.org/) (3.4+) that can perform batch modifications of many materials and nodes simultaneously, automating common repetitive tasks on models with many materials. The addon dramatically speeds up the process of preparing models for baking, especially when baking many textures into one - such as with megatextures, texture atlases, etc.
+Addon for [Blender](https://www.blender.org/) (3.0+) that can perform batch modifications of many materials and nodes simultaneously, automating common repetitive tasks on models with many materials. The addon dramatically speeds up the process of preparing models for baking, especially when baking many textures into one - such as with megatextures, texture atlases, etc.
 
 ## Features:
 - **Node Unify** - Set a selected node as a template, and then apply its settings to all other nodes of the same type, in all materials, in all selected objects.
@@ -21,7 +21,6 @@ Addon for [Blender](https://www.blender.org/) (3.4+) that can perform batch modi
 ## Notes
 - Not every operator in this addon is undoable. Keep a backup copy of your blend file just in case you need to restore something.
 - Every single operator in this addon affects *all* currently selected mesh objects, not just one object. Make sure you double check which objects you have selected before running any of them.
-- The addon was coded for Blender 3.4, but you may be able to run it in older versions, at least as far back as 3.0 or so. Try modifying the "version" code at the top of the py file to force it to run on older versions.
 
 ## Previews:
 #### The interface - found in the Material Properties tab
