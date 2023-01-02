@@ -60,7 +60,7 @@ class MatBatchProperties(bpy.types.PropertyGroup):
     SwitchShaderTarget: bpy.props.EnumProperty(
         name="Shader", description="The shader to switch in all materials in all selected objects to. For example, if you select Principled, any Emission nodes will be switched to Principled", items=[("EMISSION", 'Emission', 'Fullbright / shadeless shader - not affected by scene lighting', 0), ("BSDF_PRINCIPLED", 'Principled BSDF', 'Standard shader in Blender, affected by scene lighting', 1)], default=0)
     LightmapTexture: bpy.props.StringProperty(
-        name="Lightmap Image Name", description="The name of a lightmap image texture that has already been previously opened via the Image Editor, in HDR or EXR format", default="lightmap", maxlen=100)
+        name="Lightmap Image Name", description="The name of a lightmap image texture that has already been previously opened via the Image Editor, in HDR or EXR format", default="light.hdr", maxlen=100)
 
 
 # FUNCTION DEFINITIONS
@@ -844,9 +844,12 @@ class Convert2Lightmapped(bpy.types.Operator):
 
                         # If diffuse was found:
                         if diffuse != None:
+
                             if bpy.context.scene.MatBatchProperties.LightmapTexture in bpy.data.images.keys():
                                 lightmap = bpy.data.images[bpy.context.scene.MatBatchProperties.LightmapTexture]
                             else:
+                                display_msg_box(
+                                    "The texture named '" + bpy.context.scene.MatBatchProperties.LightmapTexture + ' was not found. Please open or create it with that exact name in the UV Editor first', "Error", "ERROR")
                                 break
 
                             material_output = None
