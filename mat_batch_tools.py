@@ -57,6 +57,8 @@ class MatBatchProperties(bpy.types.PropertyGroup):
         name="Remove Principled BSDF Alpha", description="If this option is enabled, and the Blend Mode is set to Opaque, any node connected to a Principled BSDF's 'Alpha' input will be disconnected, and its Alpha setting will be set to 1.0", default=False)
     SavedNodeName: bpy.props.StringProperty(
         name="Copied Node", description="The name of the node from which settings were copied", default="", maxlen=200)
+    SavedNodeType: bpy.props.StringProperty(
+        name="Copied Node Type", description="The type of the node from which settings were copied", default="", maxlen=200)
     UnifyFilterLabel: bpy.props.StringProperty(
         name="Label Filter", description="If specified, the Unify button will only affect any nodes that have this custom label. Case sensitive! Leave blank if you want to alter ALL nodes of the same type as the template node", default="", maxlen=100)
     SwitchShaderTarget: bpy.props.EnumProperty(
@@ -614,8 +616,8 @@ class SetAsTemplateNode(bpy.types.Operator):
                 node_unify_settings["name"] = active_node.name
                 node_unify_settings["type"] = active_node.type
                 node_unify_settings["material"] = bpy.context.active_object.active_material.name
-                bpy.context.scene.MatBatchProperties.SavedNodeName = node_unify_settings[
-                    "name"]
+                bpy.context.scene.MatBatchProperties.SavedNodeName = active_node.name
+                bpy.context.scene.MatBatchProperties.SavedNodeType = active_node.bl_label
             else:
                 display_msg_box(
                     "There is no active node. Click on a node to set one as active", "Error", "ERROR")
@@ -989,7 +991,7 @@ class MaterialBatchToolsPanel(bpy.types.Panel):
         boxUnify.label(text="Node Unify")
         rowUnify1 = boxUnify.row()
         rowUnify1.label(text="Saved Node: " +
-                        bpy.context.scene.MatBatchProperties.SavedNodeName)
+                        bpy.context.scene.MatBatchProperties.SavedNodeType)
         rowUnify2 = boxUnify.row()
         rowUnify3 = boxUnify.row()
         rowUnify4 = boxUnify.row()
