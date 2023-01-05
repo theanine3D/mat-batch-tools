@@ -3,7 +3,7 @@ Addon for [Blender](https://www.blender.org/) (3.0+) that can perform batch modi
 
 ## Features:
 - **Node Unify** - Set a selected node as a template, and then apply its settings to all other nodes of the same type, in all materials, in all selected objects.
-	- Optional filter allos you to restrict Node Unify's effect to only nodes that have a specific label set on them. 
+	- Optional filter allows you to restrict Node Unify's effect to only nodes that have a specific label set on them. 
 - **Bake Target Node** - Copy / paste your own customized Image Texture node into all materials on all selected objects, for use with baking
 	- The created Image Texture node is set as "active" automatically, making it ready as a target for baking
 	- The node is always positioned automatically to the right of the Material Output node, for easy finding
