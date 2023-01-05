@@ -905,6 +905,8 @@ class Convert2Lightmapped(bpy.types.Operator):
                                 ((diffuse.location[0] + 330), (diffuse.location[1] - 140)))
                             mix_rgb.blend_type = "MULTIPLY"
                             mix_rgb.inputs[0].default_value = 1.0
+                            mix_rgb.name = "Lightmap Mixer"
+                            mix_rgb.label = "Lightmap Mixer"
                             node_tree.links.new(
                                 mix_rgb.inputs[mixsocket_index_diffuse], diffuse.outputs[0])
 
