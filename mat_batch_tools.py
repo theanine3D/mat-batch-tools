@@ -576,7 +576,7 @@ class SetBlendMode(bpy.types.Operator):
                                     bpy.data.materials[mat].alpha_threshold = alpha_threshold
                                     break
 
-                        else:
+                        elif filter_mode == "NOFILTER":
                             bpy.data.materials[mat].blend_method = alpha_mode
                             bpy.data.materials[mat].shadow_method = shadow_mode
                             bpy.data.materials[mat].alpha_threshold = alpha_threshold
