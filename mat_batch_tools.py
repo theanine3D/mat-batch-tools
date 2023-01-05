@@ -329,6 +329,10 @@ class AssignUVMapNode(bpy.types.Operator):
 
                     if node.type == "TEX_IMAGE" and node.image:
 
+                        # Skip if it's a Bake Target node
+                        if node.label == "Bake Target":
+                            continue
+
                         # Check if Image Texture is in the user's entered format
                         if node.image.file_format == bpy.context.scene.MatBatchProperties.UVMapNodeExtensionFilter:
 
@@ -1025,6 +1029,35 @@ class MaterialBatchToolsPanel(bpy.types.Panel):
 
         layout.separator()
 
+        # Switch Shader UI
+        boxSwitchShader = layout.box()
+        boxSwitchShader.label(text="Switch Shader")
+        rowSwitchShader1 = boxSwitchShader.row()
+        rowSwitchShader2 = boxSwitchShader.row()
+
+        rowSwitchShader1.prop(
+            bpy.context.scene.MatBatchProperties, "SwitchShaderTarget")
+        rowSwitchShader2.operator("material.switch_shader")
+
+class MaterialBatchToolsSubPanel_UV_VC(bpy.types.Panel):
+    bl_parent_id = "MATERIAL_PT_matbatchtools"
+    bl_label = 'UV & Vertex Colors'
+    bl_idname = "MATERIAL_PT_matbatchtools_uv_vc"
+    bl_space_type = 'PROPERTIES'
+    bl_region_type = 'WINDOW'
+    bl_context = 'material'
+
+    @ classmethod
+    def poll(cls, context):
+        return (context.object != None)
+
+    def draw_header(self, context):
+        layout = self.layout
+
+    def draw(self, context):
+        layout = self.layout
+        layout.enabled = (len(bpy.context.selected_objects) > 0)
+
         # UV Map Node UI
         boxUVMap1 = layout.box()
         boxUVMap1.label(text="UV Maps")
@@ -1062,43 +1095,8 @@ class MaterialBatchToolsPanel(bpy.types.Panel):
         rowVertexColors2.operator("material.assign_vc_to_nodes")
         rowVertexColors3.operator("object.rename_vertex_color")
 
-        layout.separator()
-
-        # Transparency UI
-        boxTransparency = layout.box()
-        boxTransparency.label(text="Transparency")
-        rowTransparency1 = boxTransparency.row()
-        rowTransparency2 = boxTransparency.row()
-        rowTransparency3 = boxTransparency.row()
-        rowTransparency4 = boxTransparency.row()
-        rowTransparency5 = boxTransparency.row()
-
-        rowTransparency1.prop(
-            bpy.context.scene.MatBatchProperties, "AlphaBlendMode")
-        rowTransparency2.prop(bpy.context.scene.MatBatchProperties,
-                              "AlphaBlendFilter")
-        rowTransparency3.prop(bpy.context.scene.MatBatchProperties,
-                              "AlphaThreshold")
-        rowTransparency3.enabled = (
-            bpy.context.scene.MatBatchProperties.AlphaBlendMode == "CLIP")
-        rowTransparency4.prop(
-            bpy.context.scene.MatBatchProperties, "AlphaPrincipledRemove")
-        rowTransparency4.enabled = (
-            bpy.context.scene.MatBatchProperties.AlphaBlendMode == "OPAQUE")
-        rowTransparency5.operator("material.set_blend_mode")
-
-        # Switch Shader UI
-        boxSwitchShader = layout.box()
-        boxSwitchShader.label(text="Switch Shader")
-        rowSwitchShader1 = boxSwitchShader.row()
-        rowSwitchShader2 = boxSwitchShader.row()
-
-        rowSwitchShader1.prop(
-            bpy.context.scene.MatBatchProperties, "SwitchShaderTarget")
-        rowSwitchShader2.operator("material.switch_shader")
 
 # Convert to Lightmapped menu
-
 
 class Convert2LightmappedMenu(bpy.types.Menu):
     bl_label = "Convert to Lightmapped Material"
@@ -1113,49 +1111,39 @@ class Convert2LightmappedMenu(bpy.types.Menu):
 
 # End of classes
 
+classes = (
+    MatBatchProperties,
+    CopyBakeTargetNode,
+    PasteBakeTargetNode,
+    DeleteBakeTargetNode,
+    AssignUVMapNode,
+    OverwriteUVSlotName,
+    SetUVSlotAsActive,
+    AssignVCToNodes,
+    RenameVertexColorSlot,
+    SetBlendMode,
+    SetAsTemplateNode,
+    UnifyNodeSettings,
+    SwitchShader,
+    Convert2Lightmapped,
+    Convert2LightmappedMenu,
+    Convert2LightmappedMenuOpen,
+    MaterialBatchToolsPanel,
+    MaterialBatchToolsSubPanel_UV_VC
+)
 
 def register():
-    bpy.utils.register_class(MatBatchProperties)
+    for cls in classes:
+        bpy.utils.register_class(cls)
+   
     bpy.types.Scene.MatBatchProperties = bpy.props.PointerProperty(
         type=MatBatchProperties)
-    bpy.utils.register_class(CopyBakeTargetNode)
-    bpy.utils.register_class(PasteBakeTargetNode)
-    bpy.utils.register_class(DeleteBakeTargetNode)
-    bpy.utils.register_class(AssignUVMapNode)
-    bpy.utils.register_class(OverwriteUVSlotName)
-    bpy.utils.register_class(SetUVSlotAsActive)
-    bpy.utils.register_class(AssignVCToNodes)
-    bpy.utils.register_class(RenameVertexColorSlot)
-    bpy.utils.register_class(SetBlendMode)
-    bpy.utils.register_class(SetAsTemplateNode)
-    bpy.utils.register_class(UnifyNodeSettings)
-    bpy.utils.register_class(SwitchShader)
-    bpy.utils.register_class(Convert2Lightmapped)
-    bpy.utils.register_class(Convert2LightmappedMenu)
-    bpy.utils.register_class(Convert2LightmappedMenuOpen)
-    bpy.utils.register_class(MaterialBatchToolsPanel)
-
 
 def unregister():
-    bpy.utils.unregister_class(MatBatchProperties)
-    del bpy.types.Scene.MatBatchProperties
-    bpy.utils.unregister_class(PasteBakeTargetNode)
-    bpy.utils.unregister_class(CopyBakeTargetNode)
-    bpy.utils.unregister_class(DeleteBakeTargetNode)
-    bpy.utils.unregister_class(AssignUVMapNode)
-    bpy.utils.unregister_class(OverwriteUVSlotName)
-    bpy.utils.unregister_class(SetUVSlotAsActive)
-    bpy.utils.unregister_class(AssignVCToNodes)
-    bpy.utils.unregister_class(RenameVertexColorSlot)
-    bpy.utils.unregister_class(SetBlendMode)
-    bpy.utils.unregister_class(SetAsTemplateNode)
-    bpy.utils.unregister_class(UnifyNodeSettings)
-    bpy.utils.unregister_class(SwitchShader)
-    bpy.utils.unregister_class(Convert2Lightmapped)
-    bpy.utils.unregister_class(Convert2LightmappedMenu)
-    bpy.utils.unregister_class(Convert2LightmappedMenuOpen)
-    bpy.utils.unregister_class(MaterialBatchToolsPanel)
+    for cls in classes:
+        bpy.utils.unregister_class(cls)
 
+    del bpy.types.Scene.MatBatchProperties
 
 if __name__ == "__main__":
     register()
