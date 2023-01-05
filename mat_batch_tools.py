@@ -9,7 +9,7 @@ bl_info = {
     "name": "Material Batch Tools",
     "description": "Batch tools for quickly modifying, copying, and pasting nodes on all materials in selected objects",
     "author": "Theanine3D",
-    "version": (0, 5),
+    "version": (0, 6),
     "blender": (3, 0, 0),
     "category": "Material",
     "location": "Properties -> Material Properties",
@@ -57,6 +57,8 @@ class MatBatchProperties(bpy.types.PropertyGroup):
         name="Remove Principled BSDF Alpha", description="If this option is enabled, and the Blend Mode is set to Opaque, any node connected to a Principled BSDF's 'Alpha' input will be disconnected, and its Alpha setting will be set to 1.0", default=False)
     SavedNodeName: bpy.props.StringProperty(
         name="Copied Node", description="The name of the node from which settings were copied", default="", maxlen=200)
+    UnifyFilterLabel: bpy.props.StringProperty(
+        name="Label Filter", description="If specified, the Unify button will only affect any nodes that have this custom label. Case sensitive! Leave blank if you want to alter ALL nodes of the same type as the template node", default="", maxlen=100)
     SwitchShaderTarget: bpy.props.EnumProperty(
         name="Shader", description="The shader to switch in all materials in all selected objects to. For example, if you select Principled, any Emission nodes will be switched to Principled", items=[("EMISSION", 'Emission', 'Fullbright / shadeless shader - not affected by scene lighting', 0), ("BSDF_PRINCIPLED", 'Principled BSDF', 'Standard shader in Blender, affected by scene lighting', 1)], default=0)
     LightmapTexture: bpy.props.StringProperty(
@@ -660,39 +662,53 @@ class UnifyNodeSettings(bpy.types.Operator):
                                 # For each material in selected object
                                 for mat in list_of_mats:
 
-                                    for node in bpy.data.materials[mat].node_tree.nodes:
+                                    valid_nodes = []
 
+                                    for node in bpy.data.materials[mat].node_tree.nodes:
+                            
                                         # Check if node is of the saved type
                                         if node.type == node_type:
 
-                                            # Copy and paste inputs from template node
-                                            input_counter = 0
+                                            # Check if a Label Filter was specified
+                                            if bpy.context.scene.MatBatchProperties.UnifyFilterLabel != "":
+                                                if node.label == bpy.context.scene.MatBatchProperties.UnifyFilterLabel:
+                                                    valid_nodes.append(node)
+                                                else:
+                                                    continue
+                                                
+                                            else:
+                                                valid_nodes.append(node)
 
-                                            for i in node.inputs:
+                                    for node in valid_nodes:
 
-                                                if hasattr(i, "default_value") and hasattr(template_node.inputs[input_counter], "default_value"):
+                                        # Copy and paste inputs from template node
+                                        input_counter = 0
 
-                                                    i.default_value = template_node.inputs[
-                                                        input_counter].default_value
-                                                    input_counter += 1
+                                        for i in node.inputs:
 
-                                            # Copy and paste properties from template node, but exclude the properties contained in a "do not use" list
-                                            property_list = list(
-                                                template_node.bl_rna.properties.keys())
-                                            new_property_list = list()
+                                            if hasattr(i, "default_value") and hasattr(template_node.inputs[input_counter], "default_value"):
 
-                                            do_not_use = ['rna_type', 'type', 'location', 'width', 'width_hidden', 'height', 'dimensions', 'name', 'label', 'inputs', 'outputs', 'internal_links', 'parent', 'use_custom_color', 'color', 'select', 'show_options',
-                                                          'show_preview', 'hide', 'mute', 'show_texture', 'bl_idname', 'bl_label', 'bl_description', 'bl_icon', 'bl_static_type', 'bl_width_default', 'bl_width_min', 'bl_width_max', 'bl_height_default', 'bl_height_min', 'bl_height_max']
+                                                i.default_value = template_node.inputs[
+                                                    input_counter].default_value
+                                                input_counter += 1
 
-                                            for prop in property_list:
-                                                if prop not in do_not_use:
-                                                    if node.is_property_readonly(prop) == False:
-                                                        new_property_list.append(
-                                                            prop)
+                                        # Copy and paste properties from template node, but exclude the properties contained in a "do not use" list
+                                        property_list = list(
+                                            template_node.bl_rna.properties.keys())
+                                        new_property_list = list()
 
-                                            for prop in new_property_list:
-                                                setattr(
-                                                    node, prop, eval(f"template_node.{prop}"))
+                                        do_not_use = ['rna_type', 'type', 'location', 'width', 'width_hidden', 'height', 'dimensions', 'name', 'label', 'inputs', 'outputs', 'internal_links', 'parent', 'use_custom_color', 'color', 'select', 'show_options',
+                                                    'show_preview', 'hide', 'mute', 'show_texture', 'bl_idname', 'bl_label', 'bl_description', 'bl_icon', 'bl_static_type', 'bl_width_default', 'bl_width_min', 'bl_width_max', 'bl_height_default', 'bl_height_min', 'bl_height_max']
+
+                                        for prop in property_list:
+                                            if prop not in do_not_use:
+                                                if node.is_property_readonly(prop) == False:
+                                                    new_property_list.append(
+                                                        prop)
+
+                                        for prop in new_property_list:
+                                            setattr(
+                                                node, prop, eval(f"template_node.{prop}"))
                     else:
                         display_msg_box(
                             "You haven't set a a template yet. Use the Set as Template button to set one.", "Error", "ERROR")
@@ -976,10 +992,13 @@ class MaterialBatchToolsPanel(bpy.types.Panel):
                         bpy.context.scene.MatBatchProperties.SavedNodeName)
         rowUnify2 = boxUnify.row()
         rowUnify3 = boxUnify.row()
+        rowUnify4 = boxUnify.row()
 
-        rowUnify2.operator("material.set_as_template_node")
-        rowUnify3.operator("material.unify_node_settings")
-        rowUnify3.enabled = (
+        rowUnify2.prop(
+            bpy.context.scene.MatBatchProperties, "UnifyFilterLabel")
+        rowUnify3.operator("material.set_as_template_node")
+        rowUnify4.operator("material.unify_node_settings")
+        rowUnify4.enabled = (
             bpy.context.scene.MatBatchProperties.SavedNodeName != "")
 
         layout.separator()
