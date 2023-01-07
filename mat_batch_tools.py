@@ -8,7 +8,7 @@ from bpy.props import(StringProperty, EnumProperty,
 bl_info = {
     "name": "Material Batch Tools",
     "description": "Batch tools for quickly modifying, copying, and pasting nodes on all materials in selected objects",
-    "author": "Theanine3D",
+    "author": "Pedro Valencia / Theanine3D",
     "version": (0, 8),
     "blender": (3, 0, 0),
     "category": "Material",
@@ -218,56 +218,53 @@ class PasteBakeTargetNode(bpy.types.Operator):
                 # For each material in selected object
                 for mat in list_of_mats:
 
-                    # Check if there's actually a material in the material slot
-                    if mat != '':
+                    # Find Material Output node
+                    reference_node = None
+                    for node in bpy.data.materials[mat].node_tree.nodes:
+                        if node.type == "OUTPUT_MATERIAL":
+                            reference_node = node
+                            break
 
-                        # Find Material Output node
-                        reference_node = None
+                    # If no Material Output node exists, look for an alternative reference node instead
+                    if reference_node is None:
                         for node in bpy.data.materials[mat].node_tree.nodes:
-                            if node.type == "OUTPUT_MATERIAL":
+                            if node.type == "BSDF_PRINCIPLED" or node.type == "EMISSION":
                                 reference_node = node
                                 break
 
-                        # If no Material Output node exists, look for an alternative reference node instead
-                        if reference_node is None:
-                            for node in bpy.data.materials[mat].node_tree.nodes:
-                                if node.type == "BSDF_PRINCIPLED" or node.type == "EMISSION":
-                                    reference_node = node
-                                    break
+                    # If reference node was found:
+                    if reference_node != None:
 
-                        # If reference node was found:
-                        if reference_node != None:
+                        new_image_node = None
+                        bake_target_exists = False
 
-                            new_image_node = None
-                            bake_target_exists = False
+                        # Check if Bake Target Node already exists. If so, reset it.
+                        for node in bpy.data.materials[mat].node_tree.nodes:
+                            node.select = False
+                            if "Bake Target Node" in node.name:
+                                new_image_node = node
+                                bake_target_exists = True
+                                break
 
-                            # Check if Bake Target Node already exists. If so, reset it.
-                            for node in bpy.data.materials[mat].node_tree.nodes:
-                                node.select = False
-                                if "Bake Target Node" in node.name:
-                                    new_image_node = node
-                                    bake_target_exists = True
-                                    break
+                        if not bake_target_exists:
+                            # Create Image Texture node if Bake Target Node doesn't already exist
+                            new_image_node = bpy.data.materials[mat].node_tree.nodes.new(
+                                'ShaderNodeTexImage')
 
-                            if not bake_target_exists:
-                                # Create Image Texture node if Bake Target Node doesn't already exist
-                                new_image_node = bpy.data.materials[mat].node_tree.nodes.new(
-                                    'ShaderNodeTexImage')
+                        new_image_node.image = bpy.data.images[bake_node_preset["image"]]
+                        new_image_node.location = mathutils.Vector(
+                            ((reference_node.location[0] + 180), (reference_node.location[1])))
+                        new_image_node.interpolation = bake_node_preset["interpolation"]
+                        new_image_node.projection = bake_node_preset["projection"]
+                        new_image_node.projection_blend = bake_node_preset["projection_blend"]
+                        new_image_node.extension = bake_node_preset["extension"]
+                        new_image_node.color = bpy.context.scene.MatBatchProperties.BakeTargetNodeColor
+                        new_image_node.use_custom_color = bpy.context.scene.MatBatchProperties.BakeTargetNodeColorEnable
 
-                            new_image_node.image = bpy.data.images[bake_node_preset["image"]]
-                            new_image_node.location = mathutils.Vector(
-                                ((reference_node.location[0] + 180), (reference_node.location[1])))
-                            new_image_node.interpolation = bake_node_preset["interpolation"]
-                            new_image_node.projection = bake_node_preset["projection"]
-                            new_image_node.projection_blend = bake_node_preset["projection_blend"]
-                            new_image_node.extension = bake_node_preset["extension"]
-                            new_image_node.color = bpy.context.scene.MatBatchProperties.BakeTargetNodeColor
-                            new_image_node.use_custom_color = bpy.context.scene.MatBatchProperties.BakeTargetNodeColorEnable
-
-                            new_image_node.name = "Bake Target Node"
-                            new_image_node.label = "Bake Target"
-                            new_image_node.select = True
-                            bpy.data.materials[mat].node_tree.nodes.active = new_image_node
+                        new_image_node.name = "Bake Target Node"
+                        new_image_node.label = "Bake Target"
+                        new_image_node.select = True
+                        bpy.data.materials[mat].node_tree.nodes.active = new_image_node
 
         return {'FINISHED'}
 
@@ -290,13 +287,13 @@ class DeleteBakeTargetNode(bpy.types.Operator):
 
                 # For each material in selected object
                 for mat in list_of_mats:
-                    if mat != '':
-                        # Check if Bake Target Node already exists. If so, delete it.
-                        for node in bpy.data.materials[mat].node_tree.nodes:
-                            if "Bake Target Node" in node.name:
-                                bpy.data.materials[mat].node_tree.nodes.remove(
-                                    node)
-                                break
+                    
+                    # Check if Bake Target Node already exists. If so, delete it.
+                    for node in bpy.data.materials[mat].node_tree.nodes:
+                        if "Bake Target Node" in node.name:
+                            bpy.data.materials[mat].node_tree.nodes.remove(
+                                node)
+                            break
             else:
                 display_msg_box(
                     "There is no currently set Bake Target. Use the Copy button first to set one", "Error", "ERROR")
@@ -1008,6 +1005,7 @@ class FindActiveFaceTexture(bpy.types.Operator):
                                     if "Color" in link.to_socket.name or "A" in link.to_socket.name or "B" in link.to_socket.name:
                                         diffuse = node
                                         break
+
                         # Check if diffuse was found already, and if so, break out of the loop
                         if diffuse != None:
                             break
@@ -1023,9 +1021,71 @@ class FindActiveFaceTexture(bpy.types.Operator):
                                         space.image = diffuse.image
                             else:
                                 continue
+
                     else:
                         display_msg_box('No texture was found. Make sure the active object has at least 1 material, with at least 1 texture assigned to it. Then go into Edit mode and select a face, then try running the operation again', 'Error', 'ERROR')
 
+
+        return {'FINISHED'}
+
+# Copy Texture to Material Name operator
+
+class CopyTexToMatName(bpy.types.Operator):
+    """Finds the diffuse texture in all materials, in all selected objects, and renames the material to the diffuse's texture name (minus the file extension)"""
+    bl_idname = "material.copy_tex_to_mat_name"
+    bl_label = "Copy Diffuse Texture to Material Name"
+    bl_options = {'REGISTER'}
+
+    def execute(self, context):
+
+        list_of_mats = check_for_selected()
+
+        # Check if any objects are selected.
+        if list_of_mats != False:
+
+            # For each selected object
+            for obj in bpy.context.selected_objects:
+                if obj.type == "MESH":
+
+                    # For each material
+                    for mat in list_of_mats:
+
+                        node_tree = bpy.data.materials[mat].node_tree
+
+                        # Find the diffuse image texture node
+                        diffuse = None
+
+                        for node in node_tree.nodes:
+                            
+                            if node.type == "TEX_IMAGE":
+                                if len(node.outputs[0].links) > 0:
+
+                                    for link in node.outputs[0].links:
+
+                                        # Check if Image Texture is connected to a "color" socket," or a Mix node's A and B sockets
+                                        if "Color" in link.to_socket.name or "A" in link.to_socket.name or "B" in link.to_socket.name:
+                                            diffuse = node
+                                            break
+
+                            # Check if diffuse was found already, and if so, break out of the loop
+                            if diffuse != None:
+
+                                break
+
+                        # If diffuse was found:
+                        if diffuse != None:
+                            
+                            # Get the texture name, but without the file extension
+                            diffuse_name = diffuse.image.name.split(".",1)[0]
+                            
+                            # Check if a material wtih that name already exists
+                            if diffuse_name in bpy.data.materials:
+                                old_index = obj.material_slots[mat].slot_index
+                                obj.material_slots[old_index].material = bpy.data.materials[diffuse_name]
+
+                            # If material doesn't exist yet, change the current material's name
+                            else:
+                                bpy.data.materials[mat].name = diffuse_name
 
         return {'FINISHED'}
 
@@ -1045,13 +1105,12 @@ def menu_func(self, context):
     self.layout.operator(SwitchShader.bl_idname)
     self.layout.operator(Convert2LightmappedMenuOpen.bl_idname)
     self.layout.operator(FindActiveFaceTexture.bl_idname)
-    self.layout.operator(FindActiveFaceTexture_Menu.bl_idname)
+    self.layout.operator(CopyTexToMatName.bl_idname)
 
 def imageeditor_menu_func(self, context):
     self.layout.operator(FindActiveFaceTexture.bl_idname)
 
 # MATERIALS PANEL
-
 
 class MaterialBatchToolsPanel(bpy.types.Panel):
     bl_label = 'Material Batch Tools'
@@ -1217,6 +1276,7 @@ classes = (
     Convert2LightmappedMenu,
     Convert2LightmappedMenuOpen,
     FindActiveFaceTexture,
+    CopyTexToMatName,
     MaterialBatchToolsPanel,
     MaterialBatchToolsSubPanel_UV_VC
 )
