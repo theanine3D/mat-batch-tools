@@ -13,7 +13,7 @@ Addon for [Blender](https://www.blender.org/) (3.0+) that can perform batch modi
 	- The UV Map node is selectively added based on a user-specified image format (ie. PNG, HDR). This allows you to, for example, selectively add a "lightmap" UV Map node **only** to any HDR Image Texture nodes.
 - Switch between **Opaque, Alpha Clip, and Alpha Blend**, in all materials on all selected objects, with an optional filter based on the shader (Principled BSDF or Transparent BSDF) present in the material
 - **Shader Switch** - instantly swap the Principled BSDF shader with the Emission shader, or vise versa, in all materials in all selected objects. Useful for instantly toggling fullbright on/off on a model. The first input/output connections for the original shader are preserved.
-- **Find Active Face Texture** - Finds the diffuse texture of the currently active or last selected face, and loads it in the Image Editor. Can be found by search and assigned to your quick shortcuts for easy access, or accessed via Blender's Image Editor's "Image" menu
+- **Find Active Face Texture** - Finds the diffuse texture of the currently active or last selected face, and loads it in the Image Editor. Can be found by search and assigned to your Quick Favorites for easy access, or accessed via Blender's Image Editor's "Image" menu
 
 ## Experimental Feature(s)
 - **Convert to Lightmapped Material** - Converts all materials, in all currently selected objects, to a lightmapped setup, automatically setting them up to use a lightmap image (ie. an HDR or EXR image) or lightmap vertex colors. Can only be accessed via search for now
