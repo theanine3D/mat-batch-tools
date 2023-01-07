@@ -9,7 +9,7 @@ bl_info = {
     "name": "Material Batch Tools",
     "description": "Batch tools for quickly modifying, copying, and pasting nodes on all materials in selected objects",
     "author": "Theanine3D",
-    "version": (0, 7),
+    "version": (0, 8),
     "blender": (3, 0, 0),
     "category": "Material",
     "location": "Properties -> Material Properties",
@@ -65,6 +65,8 @@ class MatBatchProperties(bpy.types.PropertyGroup):
         name="Shader", description="The shader to switch in all materials in all selected objects to. For example, if you select Principled, any Emission nodes will be switched to Principled", items=[("EMISSION", 'Emission', 'Fullbright / shadeless shader - not affected by scene lighting', 0), ("BSDF_PRINCIPLED", 'Principled BSDF', 'Standard shader in Blender, affected by scene lighting', 1)], default=0)
     LightmapTexture: bpy.props.StringProperty(
         name="Lightmap Image Name", description="The name of a lightmap image texture that has already been previously opened via the Image Editor, in HDR or EXR format", default="light.hdr", maxlen=100)
+    LightmapVC: bpy.props.BoolProperty(
+        name="Vertex Color", description="If enabled, a vertex color layer will be used instead of a lightmap texture", default=False)
 
 
 # FUNCTION DEFINITIONS
@@ -833,6 +835,7 @@ class Convert2Lightmapped(bpy.types.Operator):
 
     def execute(self, context):
 
+        useVC = bpy.context.scene.MatBatchProperties.LightmapVC
         list_of_mats = check_for_selected()
 
         # Check if any objects are selected.
@@ -867,12 +870,13 @@ class Convert2Lightmapped(bpy.types.Operator):
                         # If diffuse was found:
                         if diffuse != None:
 
-                            if bpy.context.scene.MatBatchProperties.LightmapTexture in bpy.data.images.keys():
-                                lightmap = bpy.data.images[bpy.context.scene.MatBatchProperties.LightmapTexture]
-                            else:
-                                display_msg_box(
-                                    "The texture named '" + bpy.context.scene.MatBatchProperties.LightmapTexture + ' was not found. Please open or create it with that exact name in the UV Editor first', "Error", "ERROR")
-                                break
+                            if useVC == False:
+                                if bpy.context.scene.MatBatchProperties.LightmapTexture in bpy.data.images.keys():
+                                    lightmap = bpy.data.images[bpy.context.scene.MatBatchProperties.LightmapTexture]
+                                else:
+                                    display_msg_box(
+                                        "The texture named '" + bpy.context.scene.MatBatchProperties.LightmapTexture + ' was not found. Please open or create it with that exact name in the UV Editor first', "Error", "ERROR")
+                                    break
 
                             material_output = None
                             emission = None
@@ -930,27 +934,98 @@ class Convert2Lightmapped(bpy.types.Operator):
                             node_tree.links.new(
                                 material_output.inputs[0], emission.outputs[0])
 
-                            # Lightmap Image Texture
-                            lightmap_node = node_tree.nodes.new(
-                                'ShaderNodeTexImage')
-                            lightmap_node.name = "Lightmap Texture"
-                            lightmap_node.label = "Lightmap Texture"
-                            lightmap_node.image = lightmap
-                            lightmap_node.location = mathutils.Vector(
-                                ((diffuse.location[0]), (diffuse.location[1]-290)))
-                            node_tree.links.new(
-                                mix_rgb.inputs[mixsocket_index_lightmap], lightmap_node.outputs[0])
+                            if useVC == True:
+                                # Lightmap Vertex Colors
+                                lightmap_node = node_tree.nodes.new(
+                                    'ShaderNodeVertexColor')
+                                lightmap_node.name = "Lightmap VC"
+                                lightmap_node.label = "Lightmap VC"
+                                lightmap_node.layer_name = "light"
+                                lightmap_node.location = mathutils.Vector(
+                                    ((diffuse.location[0]), (diffuse.location[1]-290)))
+                                node_tree.links.new(
+                                    mix_rgb.inputs[mixsocket_index_lightmap], lightmap_node.outputs[0])
+                            else:
+                                # Lightmap Image Texture
+                                lightmap_node = node_tree.nodes.new(
+                                    'ShaderNodeTexImage')
+                                lightmap_node.name = "Lightmap Texture"
+                                lightmap_node.label = "Lightmap Texture"
+                                lightmap_node.image = lightmap
+                                lightmap_node.location = mathutils.Vector(
+                                    ((diffuse.location[0]), (diffuse.location[1]-290)))
+                                node_tree.links.new(
+                                    mix_rgb.inputs[mixsocket_index_lightmap], lightmap_node.outputs[0])
 
-                            # UV Map node for lightmap
-                            lightmap_uv = node_tree.nodes.new(
-                                'ShaderNodeUVMap')
-                            lightmap_uv.name = "Lightmap UV"
-                            lightmap_uv.label = "Lightmap UV"
-                            lightmap_uv.uv_map = "lightmap"
-                            lightmap_uv.location = mathutils.Vector(
-                                ((lightmap_node.location[0]-200), (lightmap_node.location[1])))
-                            node_tree.links.new(
-                                lightmap_node.inputs[0], lightmap_uv.outputs[0])
+                                # UV Map node for lightmap
+                                lightmap_uv = node_tree.nodes.new(
+                                    'ShaderNodeUVMap')
+                                lightmap_uv.name = "Lightmap UV"
+                                lightmap_uv.label = "Lightmap UV"
+                                lightmap_uv.uv_map = "lightmap"
+                                lightmap_uv.location = mathutils.Vector(
+                                    ((lightmap_node.location[0]-200), (lightmap_node.location[1])))
+                                node_tree.links.new(
+                                    lightmap_node.inputs[0], lightmap_uv.outputs[0])
+
+        return {'FINISHED'}
+
+
+# Find Active Face Texture operator
+
+class FindActiveFaceTexture(bpy.types.Operator):
+    """Finds the diffuse texture assigned to the current face, and selects it in the Image Editor"""
+    bl_idname = "image.find_active_diffuse"
+    bl_label = "Find Active Face Texture"
+    bl_options = {'REGISTER'}
+
+    def execute(self, context):
+
+        list_of_mats = check_for_selected()
+
+        # Check if any objects are selected.
+        if list_of_mats != False:
+
+            # For each selected object
+            for obj in bpy.context.selected_objects:
+                if obj.type == "MESH":
+
+                    # Get material assigned to this face
+                    mat = bpy.context.active_object.active_material
+
+                    node_tree = mat.node_tree
+
+                    # Find the diffuse image texture node
+                    diffuse = None
+
+                    for node in node_tree.nodes:
+                        if node.type == "TEX_IMAGE":
+                            if len(node.outputs[0].links) > 0:
+
+                                for link in node.outputs[0].links:
+
+                                    # Check if Image Texture is connected to a "color" socket," or a Mix node's A and B sockets
+                                    if "Color" in link.to_socket.name or "A" in link.to_socket.name or "B" in link.to_socket.name:
+                                        diffuse = node
+                                        break
+                        # Check if diffuse was found already, and if so, break out of the loop
+                        if diffuse != None:
+                            break
+
+                    # If diffuse was found:
+                    if diffuse != None:
+                        
+                        # Find active image editor
+                        for screen in bpy.context.screen.areas:
+                            if screen.type == "IMAGE_EDITOR":
+                                for space in screen.spaces:
+                                    if space.type == "IMAGE_EDITOR":
+                                        space.image = diffuse.image
+                            else:
+                                continue
+                    else:
+                        display_msg_box('No texture was found. Make sure the active object has at least 1 material, with at least 1 texture assigned to it. Then go into Edit mode and select a face, then try running the operation again', 'Error', 'ERROR')
+
 
         return {'FINISHED'}
 
@@ -970,6 +1045,7 @@ def menu_func(self, context):
     self.layout.operator(UnifyNodeSettings.bl_idname)
     self.layout.operator(SwitchShader.bl_idname)
     self.layout.operator(Convert2LightmappedMenuOpen.bl_idname)
+    self.layout.operator(FindActiveFaceTexture.bl_idname)
 
 # MATERIALS PANEL
 
@@ -1104,10 +1180,19 @@ class Convert2LightmappedMenu(bpy.types.Menu):
 
     def draw(self, context):
         layout = self.layout
-        layout.prop(
+        row1 = layout.row()
+        row2 = layout.row()
+        row3 = layout.row()
+
+        row1.prop(
             bpy.context.scene.MatBatchProperties, "LightmapTexture")
+        row2.prop(
+            bpy.context.scene.MatBatchProperties, "LightmapVC")
+        row1.enabled = not bpy.context.scene.MatBatchProperties.LightmapVC
+
         layout.separator()
-        layout.operator("material.convert2lightmapped")
+
+        row3.operator("material.convert2lightmapped")
 
 # End of classes
 
@@ -1128,6 +1213,7 @@ classes = (
     Convert2Lightmapped,
     Convert2LightmappedMenu,
     Convert2LightmappedMenuOpen,
+    FindActiveFaceTexture,
     MaterialBatchToolsPanel,
     MaterialBatchToolsSubPanel_UV_VC
 )
