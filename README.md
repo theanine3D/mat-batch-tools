@@ -14,6 +14,7 @@ Addon for [Blender](https://www.blender.org/) (3.0+) that can perform batch modi
 - Switch between **Opaque, Alpha Clip, and Alpha Blend**, in all materials on all selected objects, with an optional filter based on the shader (Principled BSDF or Transparent BSDF) present in the material
 - **Shader Switch** - instantly swap the Principled BSDF shader with the Emission shader, or vise versa, in all materials in all selected objects. Useful for instantly toggling fullbright on/off on a model. The first input/output connections for the original shader are preserved.
 - **Find Active Face Texture** - Finds the diffuse texture of the currently active or last selected face, and loads it in the Image Editor. Can be found by search and assigned to your Quick Favorites for easy access, or accessed via Blender's Image Editor's "Image" menu
+- **Copy Diffuse Texture to Material Name** - Finds the diffuse texture in all materials, in all selected objects, and sets each material's name to the name of the diffuse texture (if one was found).
 
 ## Experimental Feature(s)
 - **Convert to Lightmapped Material** - Converts all materials, in all currently selected objects, to a lightmapped setup, automatically setting up the nodes in each material to use a lightmap image (ie. an HDR or EXR image) or lightmap vertex colors. Can only be accessed via search for now - use at your own risk.
