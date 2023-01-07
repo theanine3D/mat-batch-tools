@@ -1029,7 +1029,6 @@ class FindActiveFaceTexture(bpy.types.Operator):
 
         return {'FINISHED'}
 
-
 # End classes
 
 def menu_func(self, context):
@@ -1045,6 +1044,10 @@ def menu_func(self, context):
     self.layout.operator(UnifyNodeSettings.bl_idname)
     self.layout.operator(SwitchShader.bl_idname)
     self.layout.operator(Convert2LightmappedMenuOpen.bl_idname)
+    self.layout.operator(FindActiveFaceTexture.bl_idname)
+    self.layout.operator(FindActiveFaceTexture_Menu.bl_idname)
+
+def imageeditor_menu_func(self, context):
     self.layout.operator(FindActiveFaceTexture.bl_idname)
 
 # MATERIALS PANEL
@@ -1224,6 +1227,8 @@ def register():
    
     bpy.types.Scene.MatBatchProperties = bpy.props.PointerProperty(
         type=MatBatchProperties)
+    
+    bpy.types.IMAGE_MT_image.append(imageeditor_menu_func)
 
 def unregister():
     for cls in classes:
