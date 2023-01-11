@@ -17,7 +17,7 @@ bl_info = {
 }
 
 
-# PROPERTY DEFINTIONS
+# PROPERTY DEFINITIONS
 bake_node_preset = {
     "image": "",
     "interpolation": "Linear",
