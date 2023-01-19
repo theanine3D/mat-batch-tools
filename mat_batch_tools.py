@@ -8,7 +8,7 @@ from bpy.props import(StringProperty, EnumProperty,
 bl_info = {
     "name": "Material Batch Tools",
     "description": "Batch tools for quickly modifying, copying, and pasting nodes on all materials in selected objects",
-    "author": "Pedro Valencia / Theanine3D",
+    "author": "Theanine3D",
     "version": (0, 8),
     "blender": (3, 0, 0),
     "category": "Material",
@@ -77,7 +77,9 @@ def display_msg_box(message="", title="Info", icon='INFO'):
     ''' display_msg_box("This is a message", "This is a custom title", "ERROR") '''
 
     def draw(self, context):
-        self.layout.label(text=message)
+        lines = message.split("\n")
+        for line in lines:
+            self.layout.label(text=line)
 
     bpy.context.window_manager.popup_menu(draw, title=title, icon=icon)
 
@@ -287,7 +289,7 @@ class DeleteBakeTargetNode(bpy.types.Operator):
 
                 # For each material in selected object
                 for mat in list_of_mats:
-                    
+
                     # Check if Bake Target Node already exists. If so, delete it.
                     for node in bpy.data.materials[mat].node_tree.nodes:
                         if "Bake Target Node" in node.name:
@@ -670,7 +672,7 @@ class UnifyNodeSettings(bpy.types.Operator):
                                     valid_nodes = []
 
                                     for node in bpy.data.materials[mat].node_tree.nodes:
-                            
+
                                         # Check if node is of the saved type
                                         if node.type == node_type:
 
@@ -680,7 +682,7 @@ class UnifyNodeSettings(bpy.types.Operator):
                                                     valid_nodes.append(node)
                                                 else:
                                                     continue
-                                                
+
                                             else:
                                                 valid_nodes.append(node)
 
@@ -703,7 +705,7 @@ class UnifyNodeSettings(bpy.types.Operator):
                                         new_property_list = list()
 
                                         do_not_use = ['rna_type', 'type', 'location', 'width', 'width_hidden', 'height', 'dimensions', 'name', 'label', 'inputs', 'outputs', 'internal_links', 'parent', 'use_custom_color', 'color', 'select', 'show_options',
-                                                    'show_preview', 'hide', 'mute', 'show_texture', 'bl_idname', 'bl_label', 'bl_description', 'bl_icon', 'bl_static_type', 'bl_width_default', 'bl_width_min', 'bl_width_max', 'bl_height_default', 'bl_height_min', 'bl_height_max']
+                                                      'show_preview', 'hide', 'mute', 'show_texture', 'bl_idname', 'bl_label', 'bl_description', 'bl_icon', 'bl_static_type', 'bl_width_default', 'bl_width_min', 'bl_width_max', 'bl_height_default', 'bl_height_min', 'bl_height_max']
 
                                         for prop in property_list:
                                             if prop not in do_not_use:
@@ -1012,7 +1014,7 @@ class FindActiveFaceTexture(bpy.types.Operator):
 
                     # If diffuse was found:
                     if diffuse != None:
-                        
+
                         # Find active image editor
                         for screen in bpy.context.screen.areas:
                             if screen.type == "IMAGE_EDITOR":
@@ -1023,12 +1025,13 @@ class FindActiveFaceTexture(bpy.types.Operator):
                                 continue
 
                     else:
-                        display_msg_box('No texture was found. Make sure the active object has at least 1 material, with at least 1 texture assigned to it. Then go into Edit mode and select a face, then try running the operation again', 'Error', 'ERROR')
-
+                        display_msg_box(
+                            'No texture was found. Make sure the active object has at least 1 material, with at least 1 texture assigned to it. Then go into Edit mode and select a face, then try running the operation again', 'Error', 'ERROR')
 
         return {'FINISHED'}
 
 # Copy Texture to Material Name operator
+
 
 class CopyTexToMatName(bpy.types.Operator):
     """Finds the diffuse texture in all materials, in all selected objects, and renames the material to the diffuse's texture name (minus the file extension)"""
@@ -1054,30 +1057,34 @@ class CopyTexToMatName(bpy.types.Operator):
 
                         # Find the diffuse image texture node
                         diffuse = None
+                        if node_tree != None:
+                            for node in node_tree.nodes:
 
-                        for node in node_tree.nodes:
-                            
-                            if node.type == "TEX_IMAGE":
-                                if len(node.outputs[0].links) > 0:
+                                if node.type == "TEX_IMAGE":
+                                    if len(node.outputs[0].links) > 0:
 
-                                    for link in node.outputs[0].links:
+                                        for link in node.outputs[0].links:
 
-                                        # Check if Image Texture is connected to a "color" socket," or a Mix node's A and B sockets
-                                        if "Color" in link.to_socket.name or "A" in link.to_socket.name or "B" in link.to_socket.name:
-                                            diffuse = node
-                                            break
+                                            # Check if Image Texture is connected to a "color" socket," or a Mix node's A and B sockets
+                                            if "Color" in link.to_socket.name or "A" in link.to_socket.name or "B" in link.to_socket.name:
+                                                diffuse = node
+                                                break
 
-                            # Check if diffuse was found already, and if so, break out of the loop
-                            if diffuse != None:
+                                # Check if diffuse was found already, and if so, break out of the loop
+                                if diffuse != None:
 
-                                break
+                                    break
+                        else:
+                            display_msg_box(
+                                'No nodes exist in the active material of this object.', 'Error', 'ERROR')
+                            continue
 
                         # If diffuse was found:
                         if diffuse != None:
-                            
+
                             # Get the texture name, but without the file extension
-                            diffuse_name = diffuse.image.name.split(".",1)[0]
-                            
+                            diffuse_name = diffuse.image.name.split(".", 1)[0]
+
                             # Check if a material wtih that name already exists
                             if diffuse_name in bpy.data.materials:
                                 old_index = obj.material_slots[mat].slot_index
@@ -1090,6 +1097,7 @@ class CopyTexToMatName(bpy.types.Operator):
         return {'FINISHED'}
 
 # End classes
+
 
 def menu_func(self, context):
     self.layout.operator(PasteBakeTargetNode.bl_idname)
@@ -1107,10 +1115,12 @@ def menu_func(self, context):
     self.layout.operator(FindActiveFaceTexture.bl_idname)
     self.layout.operator(CopyTexToMatName.bl_idname)
 
+
 def imageeditor_menu_func(self, context):
     self.layout.operator(FindActiveFaceTexture.bl_idname)
 
 # MATERIALS PANEL
+
 
 class MaterialBatchToolsPanel(bpy.types.Panel):
     bl_label = 'Material Batch Tools'
@@ -1176,6 +1186,7 @@ class MaterialBatchToolsPanel(bpy.types.Panel):
         rowSwitchShader1.prop(
             bpy.context.scene.MatBatchProperties, "SwitchShaderTarget")
         rowSwitchShader2.operator("material.switch_shader")
+
 
 class MaterialBatchToolsSubPanel_UV_VC(bpy.types.Panel):
     bl_parent_id = "MATERIAL_PT_matbatchtools"
@@ -1258,6 +1269,7 @@ class Convert2LightmappedMenu(bpy.types.Menu):
 
 # End of classes
 
+
 classes = (
     MatBatchProperties,
     CopyBakeTargetNode,
@@ -1281,20 +1293,23 @@ classes = (
     MaterialBatchToolsSubPanel_UV_VC
 )
 
+
 def register():
     for cls in classes:
         bpy.utils.register_class(cls)
-   
+
     bpy.types.Scene.MatBatchProperties = bpy.props.PointerProperty(
         type=MatBatchProperties)
-    
+
     bpy.types.IMAGE_MT_image.append(imageeditor_menu_func)
+
 
 def unregister():
     for cls in classes:
         bpy.utils.unregister_class(cls)
 
     del bpy.types.Scene.MatBatchProperties
+
 
 if __name__ == "__main__":
     register()
