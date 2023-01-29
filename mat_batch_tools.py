@@ -1187,6 +1187,30 @@ class MaterialBatchToolsPanel(bpy.types.Panel):
             bpy.context.scene.MatBatchProperties, "SwitchShaderTarget")
         rowSwitchShader2.operator("material.switch_shader")
 
+        layout.separator()
+
+        # Transparency UI
+        boxTransparency = layout.box()
+        boxTransparency.label(text="Transparency")
+        rowTransparency1 = boxTransparency.row()
+        rowTransparency2 = boxTransparency.row()
+        rowTransparency3 = boxTransparency.row()
+        rowTransparency4 = boxTransparency.row()
+        rowTransparency5 = boxTransparency.row()
+        rowTransparency1.prop(
+            bpy.context.scene.MatBatchProperties, "AlphaBlendMode")
+        rowTransparency2.prop(bpy.context.scene.MatBatchProperties,
+                              "AlphaBlendFilter")
+        rowTransparency3.prop(bpy.context.scene.MatBatchProperties,
+                              "AlphaThreshold")
+        rowTransparency3.enabled = (
+            bpy.context.scene.MatBatchProperties.AlphaBlendMode == "CLIP")
+        rowTransparency4.prop(
+            bpy.context.scene.MatBatchProperties, "AlphaPrincipledRemove")
+        rowTransparency4.enabled = (
+            bpy.context.scene.MatBatchProperties.AlphaBlendMode == "OPAQUE")
+        rowTransparency5.operator("material.set_blend_mode")
+
 
 class MaterialBatchToolsSubPanel_UV_VC(bpy.types.Panel):
     bl_parent_id = "MATERIAL_PT_matbatchtools"
