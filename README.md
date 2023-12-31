@@ -16,7 +16,7 @@ Finding this addon useful?<br>
 	- The UV Map node is selectively added based on a user-specified image format (ie. PNG, HDR). This allows you to, for example, selectively add a "lightmap" UV Map node **only** to any HDR Image Texture nodes.
 - Switch between **Opaque, Alpha Clip, and Alpha Blend**, in all materials on all selected objects, with an optional filter based on the shader (Principled BSDF or Transparent BSDF) present in the material
 - **Shader Switch** - instantly swap the Principled BSDF shader with the Emission shader, or vise versa, in all materials in all selected objects. Useful for instantly toggling fullbright on/off on a model. The first input/output connections for the original shader are preserved.
-- **Find Active Face Texture** - Finds the diffuse texture of the currently active or last selected face, and loads it in the Image Editor. Can be found by search and assigned to your Quick Favorites for easy access, or accessed via Blender's Image Editor's "Image" menu
+- **Find/Copy/Paste Active Face Texture** - Allows you to quickly find, copy, and paste the diffuse texture of the currently active or last selected face. The Find operator loads the texture in the Image Editor. All 3 operators be found by search and assigned to your Quick Favorites for easy access, or accessed via Blender's Image Editor's "Image" menu
 - **Copy Diffuse Texture to Material Name** - Finds the diffuse texture in all materials, in all selected objects, and if one is found, the diffuse texture's name is copied to its material's name.
 
 ## Experimental Feature(s)
