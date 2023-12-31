@@ -9,7 +9,7 @@ bl_info = {
     "name": "Material Batch Tools",
     "description": "Batch tools for quickly modifying, copying, and pasting nodes on all materials in selected objects",
     "author": "Theanine3D",
-    "version": (0, 8),
+    "version": (0, 9),
     "blender": (3, 0, 0),
     "category": "Material",
     "location": "Properties -> Material Properties",
@@ -67,7 +67,8 @@ class MatBatchProperties(bpy.types.PropertyGroup):
         name="Lightmap Image Name", description="The name of a lightmap image texture that has already been previously opened via the Image Editor, in HDR or EXR format", default="light.hdr", maxlen=100)
     LightmapVC: bpy.props.BoolProperty(
         name="Vertex Color", description="If enabled, a vertex color layer will be used instead of a lightmap texture", default=False)
-
+    CopiedTexture: bpy.props.StringProperty(
+        name="Copied Texture Name", description="The name of the active image texture copied from a selected face", default="", maxlen=200)
 
 # FUNCTION DEFINITIONS
 
@@ -144,7 +145,7 @@ def check_for_selected(objectOnly=False):
                             list_of_mats.add(mat)
 
             if len(list_of_mats) > 0:
-                return list_of_mats
+                return list(set(list_of_mats))
             else:
                 display_msg_box(
                     "There are no valid materials in the selected objects", "Error", "ERROR")
@@ -209,6 +210,8 @@ class PasteBakeTargetNode(bpy.types.Operator):
 
     def execute(self, context):
 
+        num_processed = 0
+
         list_of_mats = check_for_selected()
 
         # Check if any objects are selected.
@@ -267,6 +270,14 @@ class PasteBakeTargetNode(bpy.types.Operator):
                         new_image_node.label = "Bake Target"
                         new_image_node.select = True
                         bpy.data.materials[mat].node_tree.nodes.active = new_image_node
+                        num_processed += 1
+
+                display_msg_box(
+                    f'Created bake target in {num_processed} material(s).', 'Info', 'INFO')
+            
+            else:
+                display_msg_box(
+                    "There is no currently set Bake Target. Use the Copy button first to set one", "Error", "ERROR")
 
         return {'FINISHED'}
 
@@ -280,6 +291,7 @@ class DeleteBakeTargetNode(bpy.types.Operator):
     bl_options = {'REGISTER'}
 
     def execute(self, context):
+        num_processed = 0
         list_of_mats = check_for_selected()
 
         # Check if any objects are selected.
@@ -295,11 +307,16 @@ class DeleteBakeTargetNode(bpy.types.Operator):
                         if "Bake Target Node" in node.name:
                             bpy.data.materials[mat].node_tree.nodes.remove(
                                 node)
+                            num_processed += 1
                             break
+
+                display_msg_box(
+                    f'Deleted {num_processed} bake target node(s).', 'Info', 'INFO')
+            
             else:
                 display_msg_box(
                     "There is no currently set Bake Target. Use the Copy button first to set one", "Error", "ERROR")
-
+                
         return {'FINISHED'}
 
 # Assign UV Map Node operator
@@ -312,6 +329,7 @@ class AssignUVMapNode(bpy.types.Operator):
     bl_options = {'REGISTER'}
 
     def execute(self, context):
+        num_processed = 0
         list_of_mats = check_for_selected()
 
         # Check if any objects are selected.
@@ -370,6 +388,9 @@ class AssignUVMapNode(bpy.types.Operator):
                                 ((reference_node.location[0] - 200), (reference_node.location[1] - 150)))
                             nodetree.links.new(
                                 new_UV_node.outputs["UV"], reference_node.inputs[0])
+                            num_processed += 1
+        display_msg_box(
+            f'Created and assigned {num_processed} UV Map node(s).', 'Info', 'INFO')
 
         return {'FINISHED'}
 
@@ -383,7 +404,7 @@ class OverwriteUVSlotName(bpy.types.Operator):
     bl_options = {'REGISTER'}
 
     def execute(self, context):
-
+        num_processed = 0
         # Check if any objects are selected
         if check_for_selected(True) != False:
 
@@ -418,6 +439,10 @@ class OverwriteUVSlotName(bpy.types.Operator):
                     elif uvslots[uvslot_index-1] != None:
                         uvslots[uvslot_index -
                                 1].name = uvname
+                    num_processed += 1
+
+        display_msg_box(
+            f'Renamed the UV map layer for {num_processed} object(s).', 'Info', 'INFO')
 
         return {'FINISHED'}
 
@@ -431,7 +456,7 @@ class SetUVSlotAsActive(bpy.types.Operator):
     bl_options = {'REGISTER'}
 
     def execute(self, context):
-
+        num_processed = 0
         # Check if any objects are selected
         if check_for_selected(True) != False:
 
@@ -444,7 +469,11 @@ class SetUVSlotAsActive(bpy.types.Operator):
                         bpy.context.scene.MatBatchProperties.UVSlotIndex)
                     if len(uvslots) > 0:
                         uvslots.active = uvslots[uvslot_index - 1]
+                        num_processed += 1
 
+        display_msg_box(
+            f'Set the active UV slot for {num_processed} object(s).', 'Info', 'INFO')
+        
         return {'FINISHED'}
 
 # Assign Vertex Color to Nodes operator
@@ -457,6 +486,8 @@ class AssignVCToNodes(bpy.types.Operator):
     bl_options = {'REGISTER'}
 
     def execute(self, context):
+        num_processed = 0
+
         list_of_mats = check_for_selected()
 
         # Check if any objects are selected.
@@ -466,7 +497,8 @@ class AssignVCToNodes(bpy.types.Operator):
             for obj in bpy.context.selected_objects:
 
                 if obj.type == "MESH":
-
+                    num_processed += 1
+                    
                     # For each material in selected object
                     for mat in list_of_mats:
 
@@ -474,7 +506,12 @@ class AssignVCToNodes(bpy.types.Operator):
 
                             if node.type == "VERTEX_COLOR":
                                 node.layer_name = bpy.context.scene.MatBatchProperties.VCName
+                            elif node.type == "ATTRIBUTE":
+                                node.attribute_name = bpy.context.scene.MatBatchProperties.VCName
 
+        display_msg_box(
+            f'Assigned vertex color layer in {num_processed} object(s).', 'Info', 'INFO')
+        
         return {'FINISHED'}
 
 # Rename Vertex Color Slot operator
@@ -487,6 +524,7 @@ class RenameVertexColorSlot(bpy.types.Operator):
     bl_options = {'REGISTER'}
 
     def execute(self, context):
+        num_processed = 0
 
         # Blender 3.2 renamed "vertex colors" to "color attributes," so let's check the version beforehand
         useColorAttributes = (bpy.app.version >= (3, 2, 0))
@@ -513,7 +551,10 @@ class RenameVertexColorSlot(bpy.types.Operator):
                                         domain="POINT")
                         else:
                             vcslots.new(name=vcname)
+                    num_processed += 1
 
+        display_msg_box(
+            f'Renamed {num_processed} vertex color slot(s).', 'Info', 'INFO')
         return {'FINISHED'}
 
 
@@ -588,7 +629,7 @@ class SetBlendMode(bpy.types.Operator):
                             bpy.data.materials[mat].shadow_method = shadow_mode
                             bpy.data.materials[mat].alpha_threshold = alpha_threshold
                             continue
-
+                        
         return {'FINISHED'}
 
 
@@ -642,7 +683,7 @@ class UnifyNodeSettings(bpy.types.Operator):
     bl_options = {'REGISTER'}
 
     def execute(self, context):
-
+        num_processed = 0
         node_type = node_unify_settings["type"]
 
         # Check if template node's material still exists:
@@ -665,6 +706,7 @@ class UnifyNodeSettings(bpy.types.Operator):
                         # For each selected object
                         for obj in bpy.context.selected_objects:
                             if obj.type == "MESH":
+                                num_processed += 1
 
                                 # For each material in selected object
                                 for mat in list_of_mats:
@@ -685,7 +727,7 @@ class UnifyNodeSettings(bpy.types.Operator):
 
                                             else:
                                                 valid_nodes.append(node)
-
+                                                
                                     for node in valid_nodes:
 
                                         # Copy and paste inputs from template node
@@ -725,7 +767,9 @@ class UnifyNodeSettings(bpy.types.Operator):
         else:
             display_msg_box(
                 "The template node's parent material no longer exists. Use the Set as Template button set a new one", "Error", "ERROR")
-
+        
+        display_msg_box(
+            f'Applied unified node settings in {num_processed} object(s).', 'Info', 'INFO')
         return {'FINISHED'}
 
 # Shader Switch operator
@@ -739,6 +783,7 @@ class SwitchShader(bpy.types.Operator):
 
     def execute(self, context):
 
+        num_processed = 0
         list_of_mats = check_for_selected()
 
         # Check if any objects are selected.
@@ -806,6 +851,10 @@ class SwitchShader(bpy.types.Operator):
                                         material.node_tree.links.new(
                                             output_node_socket, new_shader.outputs[0])
                                     material.node_tree.nodes.remove(old_shader)
+                                    num_processed += 1
+
+        display_msg_box(
+            f'Switched shader in {num_processed} material(s).', 'Info', 'INFO')
 
         return {'FINISHED'}
 
@@ -833,6 +882,8 @@ class Convert2Lightmapped(bpy.types.Operator):
     bl_options = {'INTERNAL'}
 
     def execute(self, context):
+
+        num_processed = 0
 
         useVC = bpy.context.scene.MatBatchProperties.LightmapVC
         list_of_mats = check_for_selected()
@@ -966,6 +1017,10 @@ class Convert2Lightmapped(bpy.types.Operator):
                                     ((lightmap_node.location[0]-200), (lightmap_node.location[1])))
                                 node_tree.links.new(
                                     lightmap_node.inputs[0], lightmap_uv.outputs[0])
+                            num_processed += 1
+
+        display_msg_box(
+            f'Converted {num_processed} material(s).', 'Info', 'INFO')
 
         return {'FINISHED'}
 
@@ -973,7 +1028,7 @@ class Convert2Lightmapped(bpy.types.Operator):
 # Find Active Face Texture operator
 
 class FindActiveFaceTexture(bpy.types.Operator):
-    """Finds the diffuse texture assigned to the current face, and selects it in the Image Editor"""
+    """Finds the diffuse texture assigned to the current active face, and selects it in the Image Editor"""
     bl_idname = "image.find_active_diffuse"
     bl_label = "Find Active Face Texture"
     bl_options = {'REGISTER'}
@@ -985,50 +1040,155 @@ class FindActiveFaceTexture(bpy.types.Operator):
         # Check if any objects are selected.
         if list_of_mats != False:
 
-            # For each selected object
-            for obj in bpy.context.selected_objects:
-                if obj.type == "MESH":
+            # Get the active object
+            obj = bpy.context.active_object
+            if obj.type == "MESH":
 
-                    # Get material assigned to this face
-                    mat = bpy.context.active_object.active_material
+                # Get active material
+                mat = obj.active_material
 
-                    node_tree = mat.node_tree
+                node_tree = mat.node_tree
 
-                    # Find the diffuse image texture node
-                    diffuse = None
+                # Find the diffuse image texture node
+                diffuse = None
 
-                    for node in node_tree.nodes:
-                        if node.type == "TEX_IMAGE":
-                            if len(node.outputs[0].links) > 0:
+                for node in node_tree.nodes:
+                    if node.type == "TEX_IMAGE":
+                        if len(node.outputs[0].links) > 0:
 
-                                for link in node.outputs[0].links:
+                            for link in node.outputs[0].links:
 
-                                    # Check if Image Texture is connected to a "color" socket," or a Mix node's A and B sockets
-                                    if "Color" in link.to_socket.name or "A" in link.to_socket.name or "B" in link.to_socket.name:
-                                        diffuse = node
-                                        break
+                                # Check if Image Texture is connected to a "color" socket," or a Mix node's A and B sockets
+                                if "Color" in link.to_socket.name or "A" in link.to_socket.name or "B" in link.to_socket.name:
+                                    diffuse = node
+                                    break
 
-                        # Check if diffuse was found already, and if so, break out of the loop
-                        if diffuse != None:
-                            break
-
-                    # If diffuse was found:
+                    # Check if diffuse was found already, and if so, break out of the loop
                     if diffuse != None:
+                        break
 
-                        # Find active image editor
-                        for screen in bpy.context.screen.areas:
-                            if screen.type == "IMAGE_EDITOR":
-                                for space in screen.spaces:
-                                    if space.type == "IMAGE_EDITOR":
-                                        space.image = diffuse.image
-                            else:
-                                continue
+                # If diffuse was found:
+                if diffuse != None:
 
-                    else:
-                        display_msg_box(
-                            'No texture was found. Make sure the active object has at least 1 material, with at least 1 texture assigned to it. Then go into Edit mode and select a face, then try running the operation again', 'Error', 'ERROR')
+                    # Find active image editor
+                    for screen in bpy.context.screen.areas:
+                        if screen.type == "IMAGE_EDITOR":
+                            for space in screen.spaces:
+                                if space.type == "IMAGE_EDITOR":
+                                    space.image = diffuse.image
+                        else:
+                            continue
+
+                else:
+                    display_msg_box(
+                        'No texture was found. Make sure the active object has at least 1 material, with at least 1 texture assigned to it. Then go into Edit mode and select a face, then try running the operation again', 'Error', 'ERROR')
 
         return {'FINISHED'}
+    
+# Copy Active Face Texture operator
+
+class CopyActiveFaceTexture(bpy.types.Operator):
+    """Copies the diffuse texture assigned to the current active face, and stores it for pasting in another face's material"""
+    bl_idname = "image.copy_active_diffuse"
+    bl_label = "Copy Active Face Texture"
+    bl_options = {'REGISTER'}
+
+    def execute(self, context):
+
+        list_of_mats = check_for_selected()
+
+        # Check if any objects are selected.
+        if list_of_mats != False:
+
+            # Get the active object
+            obj = bpy.context.active_object
+            if obj.type == "MESH":
+
+                # Get active material
+                mat = obj.active_material
+
+                node_tree = mat.node_tree
+
+                # Find the diffuse image texture node
+                diffuse = None
+
+                for node in node_tree.nodes:
+                    if node.type == "TEX_IMAGE":
+                        if len(node.outputs[0].links) > 0:
+
+                            for link in node.outputs[0].links:
+
+                                # Check if Image Texture is connected to a "color" socket," or a Mix node's A and B sockets
+                                if "Color" in link.to_socket.name or "A" in link.to_socket.name or "B" in link.to_socket.name:
+                                    diffuse = node
+                                    break
+
+                    # Check if diffuse was found already, and if so, break out of the loop
+                    if diffuse != None:
+                        break
+
+                # If diffuse was found:
+                if diffuse != None:
+                    bpy.context.scene.MatBatchProperties.CopiedTexture = diffuse.image.name
+
+                else:
+                    display_msg_box(
+                        'No texture was found. Make sure the active object has at least 1 material, with at least 1 texture assigned to it. Then go into Edit mode and select a face, then try running the operation again', 'Error', 'ERROR')
+
+        return {'FINISHED'}
+
+# Paste Active Face Texture operator
+
+class PasteActiveFaceTexture(bpy.types.Operator):
+    """Pastes the previously copied diffuse texture into the selected, active face's active material"""
+    bl_idname = "image.paste_active_diffuse"
+    bl_label = "Paste Active Face Texture"
+    bl_options = {'REGISTER'}
+
+    def execute(self, context):
+
+        list_of_mats = check_for_selected()
+
+        # Check if any objects are selected.
+        if list_of_mats != False:
+
+            # Get the active object
+            obj = bpy.context.active_object
+            if obj.type == "MESH":
+
+                # Get active material
+                mat = obj.active_material
+
+                node_tree = mat.node_tree
+
+                # Find the diffuse image texture node
+                diffuse = None
+
+                for node in node_tree.nodes:
+                    if node.type == "TEX_IMAGE":
+                        if len(node.outputs[0].links) > 0:
+
+                            for link in node.outputs[0].links:
+
+                                # Check if Image Texture is connected to a "color" socket," or a Mix node's A and B sockets
+                                if "Color" in link.to_socket.name or "A" in link.to_socket.name or "B" in link.to_socket.name:
+                                    diffuse = node
+                                    break
+
+                    # Check if diffuse was found already, and if so, break out of the loop
+                    if diffuse != None:
+                        break
+
+                # If diffuse was found:
+                if diffuse != None:
+                    diffuse.image = bpy.data.images[bpy.context.scene.MatBatchProperties.CopiedTexture]
+
+                else:
+                    display_msg_box(
+                        'No image texture node was found. Make sure the active object has at least 1 material, with at least 1 image texture node in its node tree.', 'Error', 'ERROR')
+
+        return {'FINISHED'}
+
 
 # Copy Texture to Material Name operator
 
@@ -1040,6 +1200,8 @@ class CopyTexToMatName(bpy.types.Operator):
     bl_options = {'REGISTER'}
 
     def execute(self, context):
+
+        num_processed = 0
 
         list_of_mats = check_for_selected()
 
@@ -1085,7 +1247,7 @@ class CopyTexToMatName(bpy.types.Operator):
                             # Get the texture name, but without the file extension
                             diffuse_name = diffuse.image.name.split(".", 1)[0]
 
-                            # Check if a material wtih that name already exists
+                            # Check if a material with that name already exists
                             if diffuse_name in bpy.data.materials:
                                 old_index = obj.material_slots[mat].slot_index
                                 obj.material_slots[old_index].material = bpy.data.materials[diffuse_name]
@@ -1093,6 +1255,10 @@ class CopyTexToMatName(bpy.types.Operator):
                             # If material doesn't exist yet, change the current material's name
                             else:
                                 bpy.data.materials[mat].name = diffuse_name
+                                num_processed += 1
+
+        display_msg_box(
+            f'Renamed {num_processed} material(s).', 'Info', 'INFO')
 
         return {'FINISHED'}
 
@@ -1118,6 +1284,8 @@ def menu_func(self, context):
 
 def imageeditor_menu_func(self, context):
     self.layout.operator(FindActiveFaceTexture.bl_idname)
+    self.layout.operator(CopyActiveFaceTexture.bl_idname)
+    self.layout.operator(PasteActiveFaceTexture.bl_idname)
 
 # MATERIALS PANEL
 
@@ -1312,6 +1480,8 @@ classes = (
     Convert2LightmappedMenu,
     Convert2LightmappedMenuOpen,
     FindActiveFaceTexture,
+    CopyActiveFaceTexture,
+    PasteActiveFaceTexture,
     CopyTexToMatName,
     MaterialBatchToolsPanel,
     MaterialBatchToolsSubPanel_UV_VC
