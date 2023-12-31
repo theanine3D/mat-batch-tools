@@ -1130,8 +1130,8 @@ class CopyActiveFaceTexture(bpy.types.Operator):
 
                 # If diffuse was found:
                 if diffuse != None:
-                    bpy.context.scene.MatBatchProperties.CopiedTexture = diffuse.image.name
-
+                    if diffuse.image:
+                        bpy.context.scene.MatBatchProperties.CopiedTexture = diffuse.image.name
                 else:
                     display_msg_box(
                         'No texture was found. Make sure the active object has at least 1 material, with at least 1 texture assigned to it. Then go into Edit mode and select a face, then try running the operation again', 'Error', 'ERROR')
@@ -1182,7 +1182,8 @@ class PasteActiveFaceTexture(bpy.types.Operator):
 
                 # If diffuse was found:
                 if diffuse != None:
-                    diffuse.image = bpy.data.images[bpy.context.scene.MatBatchProperties.CopiedTexture]
+                    if diffuse.image:
+                        diffuse.image = bpy.data.images[bpy.context.scene.MatBatchProperties.CopiedTexture]
 
                 else:
                     display_msg_box(
