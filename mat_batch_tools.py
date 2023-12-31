@@ -1121,8 +1121,11 @@ class CopyActiveFaceTexture(bpy.types.Operator):
 
                                 # Check if Image Texture is connected to a "color" socket," or a Mix node's A and B sockets
                                 if "Color" in link.to_socket.name or "A" in link.to_socket.name or "B" in link.to_socket.name:
-                                    diffuse = node
-                                    break
+                                    
+                                    # Check if there's an actual image texture loaded in the node
+                                    if node.image:
+                                        diffuse = node
+                                        break
 
                     # Check if diffuse was found already, and if so, break out of the loop
                     if diffuse != None:
@@ -1130,8 +1133,7 @@ class CopyActiveFaceTexture(bpy.types.Operator):
 
                 # If diffuse was found:
                 if diffuse != None:
-                    if bpy.data.images[bpy.context.scene.MatBatchProperties.CopiedTexture]:
-                        bpy.context.scene.MatBatchProperties.CopiedTexture = diffuse.image.name
+                    bpy.context.scene.MatBatchProperties.CopiedTexture = diffuse.image.name
                 else:
                     display_msg_box(
                         'No texture was found. Make sure the active object has at least 1 material, with at least 1 texture assigned to it. Then go into Edit mode and select a face, then try running the operation again', 'Error', 'ERROR')
@@ -1162,32 +1164,35 @@ class PasteActiveFaceTexture(bpy.types.Operator):
 
                 node_tree = mat.node_tree
 
-                # Find the diffuse image texture node
-                diffuse = None
+                # Check if a texture was already copied
+                copied_tex = bpy.context.scene.MatBatchProperties.CopiedTexture
 
-                for node in node_tree.nodes:
-                    if node.type == "TEX_IMAGE":
-                        if len(node.outputs[0].links) > 0:
+                if copied_tex != "" and bpy.data.images[copied_tex]:
 
-                            for link in node.outputs[0].links:
+                    # Find the diffuse image texture node
+                    diffuse = None
 
-                                # Check if Image Texture is connected to a "color" socket," or a Mix node's A and B sockets
-                                if "Color" in link.to_socket.name or "A" in link.to_socket.name or "B" in link.to_socket.name:
-                                    diffuse = node
-                                    break
+                    for node in node_tree.nodes:
+                        if node.type == "TEX_IMAGE":
+                            if len(node.outputs[0].links) > 0:
 
-                    # Check if diffuse was found already, and if so, break out of the loop
+                                for link in node.outputs[0].links:
+
+                                    # Check if Image Texture is connected to a "color" socket," or a Mix node's A and B sockets
+                                    if "Color" in link.to_socket.name or "A" in link.to_socket.name or "B" in link.to_socket.name:
+                                        diffuse = node
+                                        break
+
+                        # Check if diffuse was found already, and if so, break out of the loop
+                        if diffuse != None:
+                            break
+
+                    # If diffuse was found:
                     if diffuse != None:
-                        break
-
-                # If diffuse was found:
-                if diffuse != None:
-                    if bpy.data.images[bpy.context.scene.MatBatchProperties.CopiedTexture]:
-                        diffuse.image = bpy.data.images[bpy.context.scene.MatBatchProperties.CopiedTexture]
-
-                else:
-                    display_msg_box(
-                        'No image texture node was found. Make sure the active object has at least 1 material, with at least 1 image texture node in its node tree.', 'Error', 'ERROR')
+                        diffuse.image = bpy.data.images[copied_tex]
+                    else:
+                        display_msg_box(
+                            'No image texture node was found. Make sure the active object has at least 1 material, with at least 1 image texture node in its node tree.', 'Error', 'ERROR')
 
         return {'FINISHED'}
 
