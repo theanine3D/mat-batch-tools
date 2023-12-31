@@ -1130,7 +1130,7 @@ class CopyActiveFaceTexture(bpy.types.Operator):
 
                 # If diffuse was found:
                 if diffuse != None:
-                    if diffuse.image:
+                    if bpy.data.images[bpy.context.scene.MatBatchProperties.CopiedTexture]:
                         bpy.context.scene.MatBatchProperties.CopiedTexture = diffuse.image.name
                 else:
                     display_msg_box(
@@ -1182,7 +1182,7 @@ class PasteActiveFaceTexture(bpy.types.Operator):
 
                 # If diffuse was found:
                 if diffuse != None:
-                    if diffuse.image:
+                    if bpy.data.images[bpy.context.scene.MatBatchProperties.CopiedTexture]:
                         diffuse.image = bpy.data.images[bpy.context.scene.MatBatchProperties.CopiedTexture]
 
                 else:
