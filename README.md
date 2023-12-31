@@ -17,10 +17,10 @@ Finding this addon useful?<br>
 - Switch between **Opaque, Alpha Clip, and Alpha Blend**, in all materials on all selected objects, with an optional filter based on the shader (Principled BSDF or Transparent BSDF) present in the material
 - **Shader Switch** - instantly swap the Principled BSDF shader with the Emission shader, or vise versa, in all materials in all selected objects. Useful for instantly toggling fullbright on/off on a model. The first input/output connections for the original shader are preserved.
 - **Find/Copy/Paste Active Face Texture** - Allows you to quickly find, copy, and paste the diffuse texture of the currently active or last selected face. The Find operator loads the texture in the Image Editor. All 3 operators be found by search and assigned to your Quick Favorites for easy access, or accessed via Blender's Image Editor's "Image" menu
-- **Copy Diffuse Texture to Material Name** - Finds the diffuse texture in all materials, in all selected objects, and if one is found, the diffuse texture's name is copied to its material's name.
+- **Copy Diffuse Texture to Material Name** - Finds the diffuse texture in all materials, in all selected objects, and if one is found, the diffuse texture's name is copied to its material's name. Can be accessed from the UV Editor's "Image" menu.
 
 ## Experimental Feature(s)
-- **Convert to Lightmapped Material** - Converts all materials, in all currently selected objects, to a lightmapped setup, automatically setting up the nodes in each material to use a lightmap image (ie. an HDR or EXR image) or lightmap vertex colors. Can only be accessed via search for now - use at your own risk.
+- **Convert to Lightmapped Material** - Converts all materials, in all currently selected objects, to a lightmapped setup, automatically setting up the nodes in each material to use a lightmap image (ie. an HDR or EXR image) or lightmap vertex colors. Can be accessed via the "Node" menu in the Shader Editor.
 
 ## Installation
 1. For the newest, bleeding edge version, download [mat_batch_tools.py](https://github.com/theanine3D/mat-batch-tools/raw/main/mat_batch_tools.py) (right click this link and Save As...) If you want a more stable release, check the [Releases](https://github.com/theanine3D/mat-batch-tools/releases).
