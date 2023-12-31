@@ -32,7 +32,7 @@ Finding this addon useful?<br>
 
 ## Notes
 - Not every operator in this addon is undoable. Keep a backup copy of your blend file just in case you need to restore something.
-- Every single operator in this addon affects *all* currently selected mesh objects, not just one object. Make sure you double check which objects you have selected before running any of them.
+- Most operators in this addon affect *all* currently selected mesh objects, not just one object. Make sure you double check which objects you have selected before running any of them.
 
 ## Previews:
 #### The interface - found in the Material Properties tab
