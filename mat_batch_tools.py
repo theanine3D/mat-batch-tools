@@ -9,7 +9,7 @@ bl_info = {
     "name": "Material Batch Tools",
     "description": "Batch tools for quickly modifying, copying, and pasting nodes on all materials in selected objects",
     "author": "Theanine3D",
-    "version": (0, 9),
+    "version": (0, 9, 1),
     "blender": (3, 0, 0),
     "category": "Material",
     "location": "Properties -> Material Properties",
@@ -1019,8 +1019,9 @@ class Convert2Lightmapped(bpy.types.Operator):
                                     lightmap_node.inputs[0], lightmap_uv.outputs[0])
                             num_processed += 1
 
-        display_msg_box(
-            f'Converted {num_processed} material(s).', 'Info', 'INFO')
+        if num_processed > 0:
+            display_msg_box(
+                f'Converted {num_processed} material(s).', 'Info', 'INFO')
 
         return {'FINISHED'}
 
@@ -1215,47 +1216,55 @@ class CopyTexToMatName(bpy.types.Operator):
                     # For each material
                     for mat in list_of_mats:
 
-                        node_tree = bpy.data.materials[mat].node_tree
+                        if mat in bpy.data.materials.keys():
+                            node_tree = bpy.data.materials[mat].node_tree
 
-                        # Find the diffuse image texture node
-                        diffuse = None
-                        if node_tree != None:
-                            for node in node_tree.nodes:
+                            # Find the diffuse image texture node
+                            diffuse = None
+                            if node_tree != None:
+                                for node in node_tree.nodes:
 
-                                if node.type == "TEX_IMAGE":
-                                    if len(node.outputs[0].links) > 0:
+                                    if node.type == "TEX_IMAGE":
+                                        # Check if a file is actually loaded in this image texture node
+                                        if node.image:
 
-                                        for link in node.outputs[0].links:
+                                            if len(node.outputs[0].links) > 0:
 
-                                            # Check if Image Texture is connected to a "color" socket," or a Mix node's A and B sockets
-                                            if "Color" in link.to_socket.name or "A" in link.to_socket.name or "B" in link.to_socket.name:
-                                                diffuse = node
-                                                break
+                                                for link in node.outputs[0].links:
 
-                                # Check if diffuse was found already, and if so, break out of the loop
-                                if diffuse != None:
+                                                    # Check if Image Texture is connected to a "color" socket," or a Mix node's A and B sockets
+                                                    if "Color" in link.to_socket.name or "A" in link.to_socket.name or "B" in link.to_socket.name:
+                                                        diffuse = node
+                                                        break
+                                        else:
+                                            continue
 
-                                    break
-                        else:
-                            display_msg_box(
-                                'No nodes exist in the active material of this object.', 'Error', 'ERROR')
-                            continue
+                                    # Check if diffuse was found already, and if so, break out of the loop
+                                    if diffuse != None:
 
-                        # If diffuse was found:
-                        if diffuse != None:
-
-                            # Get the texture name, but without the file extension
-                            diffuse_name = diffuse.image.name.split(".", 1)[0]
-
-                            # Check if a material with that name already exists
-                            if diffuse_name in bpy.data.materials:
-                                old_index = obj.material_slots[mat].slot_index
-                                obj.material_slots[old_index].material = bpy.data.materials[diffuse_name]
-
-                            # If material doesn't exist yet, change the current material's name
+                                        break
                             else:
-                                bpy.data.materials[mat].name = diffuse_name
-                                num_processed += 1
+                                display_msg_box(
+                                    'No nodes exist in the active material of this object.', 'Error', 'ERROR')
+                                continue
+
+                            # If diffuse was found:
+                            if diffuse != None:
+                                
+                                    # Get the texture name, but without the file extension
+                                    diffuse_name = diffuse.image.name.split(".", 1)[0]
+
+                                    # Check if a material with that name already exists
+                                    if diffuse_name in bpy.data.materials:
+                                        if mat in obj.material_slots.keys():
+                                            old_index = obj.material_slots[mat].slot_index
+                                            obj.material_slots[old_index].material = bpy.data.materials[diffuse_name]
+
+                                    # If material doesn't exist yet, change the current material's name
+                                    else:
+                                        if mat in bpy.data.materials.keys():
+                                            bpy.data.materials[mat].name = diffuse_name
+                                            num_processed += 1
 
         display_msg_box(
             f'Renamed {num_processed} material(s).', 'Info', 'INFO')
@@ -1286,6 +1295,10 @@ def imageeditor_menu_func(self, context):
     self.layout.operator(FindActiveFaceTexture.bl_idname)
     self.layout.operator(CopyActiveFaceTexture.bl_idname)
     self.layout.operator(PasteActiveFaceTexture.bl_idname)
+    self.layout.operator(CopyTexToMatName.bl_idname)
+    
+def shadereditor_menu_func(self, context):
+    self.layout.operator(Convert2LightmappedMenuOpen.bl_idname)
 
 # MATERIALS PANEL
 
@@ -1496,6 +1509,7 @@ def register():
         type=MatBatchProperties)
 
     bpy.types.IMAGE_MT_image.append(imageeditor_menu_func)
+    bpy.types.NODE_MT_node.append(shadereditor_menu_func)
 
 
 def unregister():
