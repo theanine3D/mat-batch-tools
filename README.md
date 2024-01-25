@@ -37,7 +37,7 @@ Finding this addon useful?<br>
 
 ## Previews:
 #### The interface - found in the Material Properties tab
-![image](https://user-images.githubusercontent.com/88953117/210703675-7817103c-3fc1-437f-b7e8-0cb8ba78e044.png)
+![image](https://github.com/theanine3D/mat-batch-tools/assets/88953117/71c60a08-f9b0-4be4-acbe-99db28f240bd)
 
 #### Node Unify
 ![node unify](https://user-images.githubusercontent.com/88953117/209483715-d8592e98-56a3-4a8d-aa3f-aaf95896e1bb.gif)
