@@ -30,7 +30,6 @@ Finding this addon useful?<br>
 
 (Note: The .PY file is installed directly, without a ZIP file)
 
-
 ## Notes
 - Not every operator in this addon is undoable. Keep a backup copy of your blend file just in case you need to restore something.
 - Most operators in this addon affect *all* currently selected mesh objects, not just one object. Make sure you double check which objects you have selected before running any of them.
@@ -38,6 +37,9 @@ Finding this addon useful?<br>
 ## Previews:
 #### The interface - found in the Material Properties tab
 ![image](https://github.com/theanine3D/mat-batch-tools/assets/88953117/71c60a08-f9b0-4be4-acbe-99db28f240bd)
+
+#### Material Templates ####
+![material templates](https://github.com/theanine3D/mat-batch-tools/assets/88953117/56ec9b27-e3c5-4f90-aa13-68e6ae8bcc0c)
 
 #### Node Unify
 ![node unify](https://user-images.githubusercontent.com/88953117/209483715-d8592e98-56a3-4a8d-aa3f-aaf95896e1bb.gif)
