@@ -4,7 +4,6 @@ from bpy.utils import(register_class, unregister_class)
 from bpy.types import(Panel, PropertyGroup)
 from bpy.props import(StringProperty, EnumProperty,
                       FloatProperty, BoolProperty)
-import numpy as np
 
 bl_info = {
     "name": "Material Batch Tools",
