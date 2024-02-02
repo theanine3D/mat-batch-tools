@@ -68,11 +68,12 @@ class MatBatchProperties(bpy.types.PropertyGroup):
     Template: bpy.props.EnumProperty(
         name="Template", description="The node graph template to apply to all materials in all selected objects", items=[("ECT", 'Emissive + Color + Texture', 'Blends vertex color onto texture, if one exists', 0),
                                                                                                                          ("EC", 'Emissive + Color', 'Ignores image textures completely', 1),
-                                                                                                                         ("ACT", 'Additive + Color + Texture', 'Combines transparency and emission for an additive effect', 2),
-                                                                                                                         ("AC", 'Additive + Color', 'Combines transparency and emission for an additive effect', 3),
-                                                                                                                         ("PT", 'Principled + Texture', 'Principled shading, with texture', 4),
-                                                                                                                         ("PC", 'Principled + Color', 'Principled shading, with vertex color', 5),
-                                                                                                                         ("HDRT", 'HDR Lightmap', "Emissive but with an HDR lightmap applied for baked lighting. Your HDR's UV map must be named 'lightmap', and your HDR's filename must contain either 'light_', '.hdr' or '.exr' to be detected automatically", 6),
+                                                                                                                         ("ACCT", 'Alpha Clip + Color + Texture', 'Transparency via alpha clip, and emission', 2),
+                                                                                                                         ("ACT", 'Additive + Color + Texture', 'Combines transparency and emission for an additive effect', 3),
+                                                                                                                         ("AC", 'Additive + Color', 'Combines transparency and emission for an additive effect', 4),
+                                                                                                                         ("PT", 'Principled + Texture', 'Principled shading, with texture', 5),
+                                                                                                                         ("PC", 'Principled + Color', 'Principled shading, with vertex color', 6),
+                                                                                                                         ("HDRT", 'HDR Lightmap', "Emissive but with an HDR lightmap applied for baked lighting. Your HDR's UV map must be named 'lightmap', and your HDR's filename must contain either 'light_', '.hdr' or '.exr' to be detected automatically", 7),
                                                                                                                          ], default=0)
     SkipTexture: bpy.props.StringProperty(
         name="Skip Texture", description="Any texture containing this string in its filename will NOT be assigned in any image texture when applying a material template (optional - leave blank if unneeded)", default="", maxlen=200)
@@ -904,7 +905,7 @@ class ApplyMatTemplate(bpy.types.Operator):
 
                                 match target_template:
                                     case "ECT":
-                                        material.blend_method = "BLEND"
+                                        material.blend_method = "OPAQUE"
                                         
                                         # Store the image of the existing image texture node (if any)
                                         stored_image = None
@@ -1002,6 +1003,89 @@ class ApplyMatTemplate(bpy.types.Operator):
                                         links = material.node_tree.links
                                         links.new(color_attr_node.outputs[0], emission_node.inputs[0])
                                         links.new(emission_node.outputs[0], material_output_node.inputs[0])
+
+                                    case "ACCT":
+
+                                        material.blend_method = "CLIP"
+                                        
+                                        # Store the image of the existing image texture node (if any)
+                                        stored_image = None
+                                        for node in material.node_tree.nodes:
+                                            if node.type == 'TEX_IMAGE' and node.image:
+                                                stored_image = node.image
+                                                break
+
+                                        # Clear existing nodes
+                                        material.node_tree.nodes.clear()
+                                        if stored_image != None:
+                                            if skip_texture != "":
+                                                if skip_texture in stored_image.filepath:
+                                                    stored_image = None
+
+                                        # Create necessary nodes
+                                        if stored_image is not None:
+                                            uv_map_node = material.node_tree.nodes.new(type='ShaderNodeUVMap')
+                                            img_texture_node = material.node_tree.nodes.new(type='ShaderNodeTexImage')
+                                            mix_color_node = material.node_tree.nodes.new(type=mix_node_type)
+                                            if "MixRGB" not in mix_node_type:
+                                                mix_color_node.data_type = 'RGBA'
+                                            mix_color_node.blend_type = 'MULTIPLY'
+                                            mix_color_node.inputs[0].default_value = 1.0  # Set the factor to 1.0
+                                            img_texture_node.image = stored_image
+                                            if len(obj.data.uv_layers) > 0:
+                                                uv_map_node.uv_map = obj.data.uv_layers[0].name
+
+                                        color_attr_node = material.node_tree.nodes.new(type='ShaderNodeVertexColor')
+                                        emission_node = material.node_tree.nodes.new(type='ShaderNodeEmission')
+                                        material_output_node = material.node_tree.nodes.new(type='ShaderNodeOutputMaterial')
+                                        mix_shader_node = material.node_tree.nodes.new(type='ShaderNodeMixShader')
+                                        transparent_node = material.node_tree.nodes.new(type='ShaderNodeBsdfTransparent')
+
+                                        material.alpha_threshold = 0.5
+
+                                        # Add correct Vertex Color name
+                                        if useColorAttributes:
+                                            if len(obj.data.color_attributes) > 0:
+                                                color_attr_node.layer_name = obj.data.color_attributes[0].name
+                                        else:
+                                            if len(obj.data.vertex_colors) > 0:
+                                                color_attr_node.layer_name = obj.data.vertex_colors[0].name
+
+                                        # Arrange nodes for clarity
+                                        if stored_image is not None:
+                                            uv_map_node.location = (-700, 0)
+                                            img_texture_node.location = (-500, 0)
+                                            mix_color_node.location = (-200, 100)
+
+                                        color_attr_node.location = (-400, 150)
+                                        emission_node.location = (0, 100)
+                                        mix_shader_node.location = (200, 100)
+                                        transparent_node.location = (0, -100)
+                                        material_output_node.location = (400, 100)
+
+                                        # Link nodes
+                                        links = material.node_tree.links
+                                        if stored_image is not None:
+                                            links.new(uv_map_node.outputs[0], img_texture_node.inputs[0])
+                                            links.new(img_texture_node.outputs[0], mix_color_node.inputs[2])
+
+                                            if "MixRGB" not in mix_node_type:
+                                                links.new(img_texture_node.outputs[0], mix_color_node.inputs[7])
+                                                links.new(color_attr_node.outputs[0], mix_color_node.inputs[6])
+                                                links.new(mix_color_node.outputs[2], emission_node.inputs[0])
+                                            else:
+                                                links.new(img_texture_node.outputs[0], mix_color_node.inputs[2])
+                                                links.new(color_attr_node.outputs[0], mix_color_node.inputs[1])
+                                                links.new(mix_color_node.outputs[0], emission_node.inputs[0])
+                                        else:
+                                            links.new(color_attr_node.outputs[0], emission_node.inputs[0])
+                                            links.new(emission_node.outputs[0], material_output_node.inputs[0])
+
+                                        # Mix Shader links
+                                        links.new(emission_node.outputs[0], mix_shader_node.inputs[2])
+                                        links.new(transparent_node.outputs[0], mix_shader_node.inputs[1])
+                                        links.new(img_texture_node.outputs[1], mix_shader_node.inputs[0])
+                                        links.new(mix_shader_node.outputs[0], material_output_node.inputs[0])
 
                                     case "ACT":
 
