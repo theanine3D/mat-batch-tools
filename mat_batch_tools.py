@@ -449,7 +449,7 @@ class OverwriteUVSlotName(bpy.types.Operator):
                         uvslots[uvslot_index -
                                 1].name = uvname
                     num_processed += 1
-                obj.data.update()
+                    obj.data.update()
 
 
         display_msg_box(
@@ -481,7 +481,7 @@ class SetUVSlotAsActive(bpy.types.Operator):
                     if len(uvslots) > 0:
                         uvslots.active = uvslots[uvslot_index - 1]
                         num_processed += 1
-                obj.data.update()
+                    obj.data.update()
 
 
         display_msg_box(
@@ -521,7 +521,7 @@ class AssignVCToNodes(bpy.types.Operator):
                                 node.layer_name = bpy.context.scene.MatBatchProperties.VCName
                             elif node.type == "ATTRIBUTE":
                                 node.attribute_name = bpy.context.scene.MatBatchProperties.VCName
-                obj.data.update()
+                    obj.data.update()
 
         display_msg_box(
             f'Assigned vertex color layer in {num_processed} object(s).', 'Info', 'INFO')
@@ -567,7 +567,7 @@ class RenameVertexColorSlot(bpy.types.Operator):
                             vcslots.new(name=vcname)
                         
                     num_processed += 1
-                obj.data.update()
+                    obj.data.update()
 
         display_msg_box(
             f'Renamed {num_processed} vertex color slot(s).', 'Info', 'INFO')
@@ -645,7 +645,7 @@ class SetBlendMode(bpy.types.Operator):
                             bpy.data.materials[mat].shadow_method = shadow_mode
                             bpy.data.materials[mat].alpha_threshold = alpha_threshold
                             continue
-                obj.data.update()
+                    obj.data.update()
 
         return {'FINISHED'}
 
@@ -1370,7 +1370,7 @@ class ApplyMatTemplate(bpy.types.Operator):
                                         links.new(uv_hdr_map_node.outputs[0], hdr_tex_node.inputs[0])
 
                                 num_processed += 1
-                obj.data.update()
+                    obj.data.update()
 
         if num_processed != 0:
             display_msg_box(
