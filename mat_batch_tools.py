@@ -9,7 +9,7 @@ bl_info = {
     "name": "Material Batch Tools",
     "description": "Batch tools for quickly modifying, copying, and pasting nodes on all materials in selected objects",
     "author": "Theanine3D",
-    "version": (1, 0, 0),
+    "version": (1, 2, 0),
     "blender": (3, 0, 0),
     "category": "Material",
     "location": "Properties -> Material Properties",
@@ -134,7 +134,6 @@ def recursive_node_search(startnode, end_node_type):
             else:
                 continue
 
-
 def check_for_selected(objectOnly=False):
     list_of_mats = set()
 
@@ -163,6 +162,7 @@ def check_for_selected(objectOnly=False):
         display_msg_box(
             "At least one mesh object must be selected", "Error", "ERROR")
         return False
+
 
 # Bake Target copy operator
 
@@ -1217,12 +1217,23 @@ class ApplyMatTemplate(bpy.types.Operator):
                                     case "PT":
 
                                         material.blend_method = 'OPAQUE'
+                                        uses_transparency = False
+                                        has_alpha_channel = True
 
                                         # Store the image of the existing image texture node (if any)
                                         stored_image = None
                                         for node in material.node_tree.nodes:
                                             if node.type == 'TEX_IMAGE' and node.image:
                                                 stored_image = node.image
+
+                                                # Check if the found texture (if any) was being used for transparency previously
+                                                for output in node.outputs:
+                                                    if output.links:
+                                                        for link in output.links:
+                                                            if (link.to_node.type == "BSDF_PRINCIPLED" and link.to_socket.identifier == "Alpha") or (link.to_node.type == "MIX_SHADER" and link.to_socket.identifier == "Fac"):
+                                                                uses_transparency = True
+                                                                has_alpha_channel = True if output.identifier == "Alpha" else False
+                                                                break
                                                 break
 
                                         nodes = material.node_tree.nodes
@@ -1252,6 +1263,15 @@ class ApplyMatTemplate(bpy.types.Operator):
                                             links.new(uv_map_node.outputs[0], img_tex_node.inputs[0])
                                             links.new(img_tex_node.outputs[0], principled_node.inputs[0])
                                         links.new(principled_node.outputs[0], material_output_node.inputs[0])
+
+                                        if uses_transparency:
+                                            # Blender 4.0 moved the # of the Principled BSDF's Alpha input
+                                            if bpy.app.version >= (4, 0, 0):
+                                                links.new(img_tex_node.outputs[1 if has_alpha_channel else 0],principled_node.inputs[4])
+                                            else:
+                                                links.new(img_tex_node.outputs[1 if has_alpha_channel else 0],principled_node.inputs[21])
+                                            material.alpha_threshold = 0.5
+                                            material.blend_method = "CLIP"
 
                                     case "PC":
                                         material.blend_method = 'OPAQUE'
