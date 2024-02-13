@@ -375,7 +375,7 @@ class AssignUVMapNode(bpy.types.Operator):
                                         node.inputs[0].links[0].from_node)
                                     reference_node = node
 
-                                # If the Image Texture has some other kind of node connected... recurvsively search to find the closest UV Map node
+                                # If the Image Texture has some other kind of node connected... recursively search to find the closest UV Map node
                                 else:
                                     foundnode = recursive_node_search(
                                         node, "UVMAP")
@@ -398,6 +398,7 @@ class AssignUVMapNode(bpy.types.Operator):
                             nodetree.links.new(
                                 new_UV_node.outputs[0], reference_node.inputs[0])
                             num_processed += 1
+                            continue
         display_msg_box(
             f'Created and assigned {num_processed} UV Map node(s).', 'Info', 'INFO')
 
