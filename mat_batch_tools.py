@@ -610,11 +610,12 @@ class SetBlendMode(bpy.types.Operator):
 
                         # If user also wants to remove any alpha from the Principled node itself too
                         if bpy.context.scene.MatBatchProperties.AlphaPrincipledRemove == True and alpha_mode == "OPAQUE":
+                            principled_alpha_slot = 21 if bpy.app.version < (4, 0, 0) else 4
                             for node in principled_nodes:
-                                if len(node.inputs[21].links) > 0:
+                                if len(node.inputs[principled_alpha_slot].links) > 0:
                                     bpy.data.materials[mat].node_tree.links.remove(
-                                        node.inputs[21].links[0])
-                                node.inputs[21].default_value = 1.0
+                                        node.inputs[principled_alpha_slot].links[0])
+                                node.inputs[principled_alpha_slot].default_value = 1.0
 
                         # Filter 1 - Principled BSDF with Alpha
                         if filter_mode == "PRINCIPLEDNODE":
