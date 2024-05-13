@@ -562,8 +562,8 @@ class RenameVertexColorSlot(bpy.types.Operator):
                         vcslots[0].name = vcname
                     else:
                         if useColorAttributes:
-                            vcslots.new(name=vcname, type="FLOAT_COLOR",
-                                        domain="POINT")
+                            vcslots.new(name=vcname, type="BYTE_COLOR",
+                                        domain="CORNER")
                         else:
                             vcslots.new(name=vcname)
                         
