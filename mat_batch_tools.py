@@ -9,7 +9,7 @@ bl_info = {
     "name": "Material Batch Tools",
     "description": "Batch tools for quickly modifying, copying, and pasting nodes on all materials in selected objects",
     "author": "Theanine3D",
-    "version": (1, 2, 0),
+    "version": (1, 3, 0),
     "blender": (3, 0, 0),
     "category": "Material",
     "location": "Properties -> Material Properties",
@@ -562,8 +562,10 @@ class RenameVertexColorSlot(bpy.types.Operator):
                         vcslots[0].name = vcname
                     else:
                         if useColorAttributes:
-                            vcslots.new(name=vcname, type="BYTE_COLOR",
-                                        domain="CORNER")
+                            vcslots.new(name=vcname, type="FLOAT_COLOR",
+                                        domain="POINT")
+                            # vcslots.new(name=vcname, type="BYTE_COLOR",
+                            #             domain="CORNER")
                         else:
                             vcslots.new(name=vcname)
                         
@@ -572,6 +574,54 @@ class RenameVertexColorSlot(bpy.types.Operator):
 
         display_msg_box(
             f'Renamed {num_processed} vertex color slot(s).', 'Info', 'INFO')
+        return {'FINISHED'}
+
+# Convert Vertex Color operator
+
+
+class ConvertVertexColor(bpy.types.Operator):
+    """Converts the data type of the first Color Attribute slot in all selected objects, between 'Face Corner Byte Color' and 'Vertex Color'"""
+    bl_idname = "object.convert_vertex_color"
+    bl_label = "Convert Vertex Color Slot 1"
+    bl_options = {'REGISTER'}
+
+    def execute(self, context):
+
+        # Blender 3.2 renamed "vertex colors" to "color attributes," so let's check the version beforehand
+        useColorAttributes = (bpy.app.version >= (3, 2, 0))
+
+        if not useColorAttributes:
+            display_msg_box(
+                f'This feature is only available in Blender 3.2 or higher.', 'Error', 'ERROR')
+            return {'FINISHED'}
+
+        num_processed = 0
+
+        # Check if any objects are selected
+        if check_for_selected(True) != False:
+
+            # For each selected object
+            for obj in bpy.context.selected_objects:
+                if obj.type == "MESH":
+
+                    mesh = obj.data
+                    vcslots = mesh.color_attributes
+                    vcname = bpy.context.scene.MatBatchProperties.VCName
+
+                    if len(vcslots) == 1:
+                        if vcslots[0].data_type == "FLOAT_COLOR":
+                            vcslots.remove(vcslots[0])
+                            vcslots.new(name=vcname, type="BYTE_COLOR",
+                                        domain="CORNER")
+                        elif vcslots[0].data_type == "BYTE_COLOR":
+                            vcslots.remove(vcslots[0])
+                            vcslots.new(name=vcname, type="FLOAT_COLOR",
+                                        domain="POINT")
+                        num_processed += 1
+                    obj.data.update()
+
+        display_msg_box(
+            f'Converted {num_processed} color attribute slot(s).', 'Info', 'INFO')
         return {'FINISHED'}
 
 
@@ -1828,10 +1878,12 @@ class MaterialBatchToolsSubPanel_UV_VC(bpy.types.Panel):
         rowVertexColors1 = boxVertexColors.row()
         rowVertexColors2 = boxVertexColors.row()
         rowVertexColors3 = boxVertexColors.row()
+        rowVertexColors4 = boxVertexColors.row()
 
         rowVertexColors1.prop(bpy.context.scene.MatBatchProperties, "VCName")
         rowVertexColors2.operator("material.assign_vc_to_nodes")
         rowVertexColors3.operator("object.rename_vertex_color")
+        rowVertexColors4.operator("object.convert_vertex_color")
 
 
 # End of classes
@@ -1847,6 +1899,7 @@ classes = (
     SetUVSlotAsActive,
     AssignVCToNodes,
     RenameVertexColorSlot,
+    ConvertVertexColor,
     SetBlendMode,
     SetAsTemplateNode,
     UnifyNodeSettings,
