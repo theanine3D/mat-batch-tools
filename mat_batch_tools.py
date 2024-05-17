@@ -9,7 +9,7 @@ bl_info = {
     "name": "Material Batch Tools",
     "description": "Batch tools for quickly modifying, copying, and pasting nodes on all materials in selected objects",
     "author": "Theanine3D",
-    "version": (1, 3, 0),
+    "version": (1, 3, 1),
     "blender": (3, 0, 0),
     "category": "Material",
     "location": "Properties -> Material Properties",
@@ -74,6 +74,8 @@ class MatBatchProperties(bpy.types.PropertyGroup):
                                                                                                                          ("PT", 'Principled + Texture', 'Principled shading, with texture', 5),
                                                                                                                          ("PC", 'Principled + Color', 'Principled shading, with vertex color', 6),
                                                                                                                          ("HDRT", 'HDR Lightmap', "Emissive but with an HDR lightmap applied for baked lighting. Your HDR's UV map must be named 'lightmap', and your HDR's filename must contain either 'light_', '.hdr' or '.exr' to be detected automatically", 7),
+                                                                                                                         ("PP", 'Mirror UV', "Mirroring / ping pong effect applied to any UV Maps, on both X and Y axis", 8),
+                                                                                                                         ("NO_PP", 'Unmirror UV', "Removes the mirror / ping pong effect from any UV Maps, on both X and Y axis", 9),
                                                                                                                          ], default=0)
     SkipTexture: bpy.props.StringProperty(
         name="Skip Texture", description="Any texture containing this string in its filename will NOT be assigned in any image texture when applying a material template (optional - leave blank if unneeded)", default="", maxlen=200)
@@ -577,7 +579,6 @@ class RenameVertexColorSlot(bpy.types.Operator):
         return {'FINISHED'}
 
 # Convert Vertex Color operator
-
 
 class ConvertVertexColor(bpy.types.Operator):
     """Converts the data type of the first Color Attribute slot in all selected objects, between 'Face Corner Byte Color' and 'Vertex Color'"""
@@ -1440,6 +1441,70 @@ class ApplyMatTemplate(bpy.types.Operator):
                                             links.new(hdr_tex_node.outputs[0], emission_node.inputs[0])
                                             links.new(emission_node.outputs[0], material_output_node.inputs[0])
                                         links.new(uv_hdr_map_node.outputs[0], hdr_tex_node.inputs[0])
+
+                                    case "PP":
+                                        node_tree = material.node_tree
+
+                                        uv_map_nodes = [node for node in node_tree.nodes if node.type == 'UVMAP']
+
+                                        for uv_map_node in uv_map_nodes:
+                                            connections = [link.to_socket for link in uv_map_node.outputs[0].links]
+
+                                            # Create a Separate XYZ node
+                                            separate_xyz_node = node_tree.nodes.new(type='ShaderNodeSeparateXYZ')
+                                            separate_xyz_node.label = "Ping Pong Separate"
+                                            separate_xyz_node.location = uv_map_node.location.x, uv_map_node.location.y + 200
+                                            node_tree.links.new(uv_map_node.outputs[0], separate_xyz_node.inputs[0])
+
+                                            # Create the first Math node
+                                            math_node_1 = node_tree.nodes.new(type='ShaderNodeMath')
+                                            math_node_1.operation = 'PINGPONG'
+                                            math_node_1.label = "Ping Pong X"
+                                            math_node_1.inputs[1].default_value = 1.0
+                                            math_node_1.location = separate_xyz_node.location.x + 200, separate_xyz_node.location.y
+                                            node_tree.links.new(separate_xyz_node.outputs[0], math_node_1.inputs[0])
+
+                                            # Create the second Math node
+                                            math_node_2 = node_tree.nodes.new(type='ShaderNodeMath')
+                                            math_node_2.operation = 'PINGPONG'
+                                            math_node_2.label = "Ping Pong Y"
+                                            math_node_2.inputs[1].default_value = 1.0
+                                            math_node_2.location = separate_xyz_node.location.x + 200, separate_xyz_node.location.y - 100
+                                            node_tree.links.new(separate_xyz_node.outputs[1], math_node_2.inputs[0])
+
+                                            # Create the Combine XYZ node
+                                            combine_xyz_node = node_tree.nodes.new(type='ShaderNodeCombineXYZ')
+                                            combine_xyz_node.location = math_node_1.location.x + 200, (math_node_1.location.y + math_node_2.location.y) / 2
+                                            combine_xyz_node.label = "Ping Pong Combine"
+                                            combine_xyz_node.inputs[2].default_value = 0.0
+                                            node_tree.links.new(math_node_1.outputs['Value'], combine_xyz_node.inputs[0])
+                                            node_tree.links.new(math_node_2.outputs['Value'], combine_xyz_node.inputs[1])
+
+                                            # Reconnect the original connections to the Combine XYZ node
+                                            for socket in connections:
+                                                node_tree.links.new(combine_xyz_node.outputs['Vector'], socket)
+
+                                    case "NO_PP":
+                                        node_tree = material.node_tree
+
+                                        pp_separate_nodes = [node for node in node_tree.nodes if node.label == 'Ping Pong Separate']
+
+                                        for pp_separate_node in pp_separate_nodes:
+                                            in_node = pp_separate_node.inputs[0].links[0].from_node
+                                            pp_x_node = pp_separate_node.outputs[0].links[0].to_node
+                                            pp_y_node = pp_separate_node.outputs[1].links[0].to_node
+                                            pp_combine_node = pp_x_node.outputs[0].links[0].to_node
+                                            out_nodes = [link.to_node for link in pp_combine_node.outputs[0].links]
+
+                                            # Reconnect the original connections to the Combine XYZ node
+                                            for out_node in out_nodes:
+                                                node_tree.links.new(in_node.outputs[0], out_node.inputs[0])
+
+                                            # Remove Ping Pong nodes
+                                            node_tree.nodes.remove(pp_x_node)
+                                            node_tree.nodes.remove(pp_y_node)
+                                            node_tree.nodes.remove(pp_combine_node)
+                                            node_tree.nodes.remove(pp_separate_node)
 
                                 num_processed += 1
                     obj.data.update()
