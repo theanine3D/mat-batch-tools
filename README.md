@@ -21,7 +21,7 @@ Finding this addon useful? Please consider starring it ⭐, or donating 🙂<br>
 - **Copy Diffuse Texture to Material Name** - Finds the diffuse texture in all materials, in all selected objects, and if one is found, the diffuse texture's name is copied to its material's name. Can be accessed from the UV Editor's "Image" menu.
 
 ## Installation
-- If you are using Blender 4.2 or higher, you can install the addon via Blender's built-in online extension repository in the Preferences window.
+- If you are using Blender 4.2 or higher, you can install the addon via Blender's built-in online extension repository, via Blender's Preferences.
 - Otherwise, for the newest, bleeding edge version, press the big green Code button near the top of this page, and choose Download ZIP.
 - If you want a more stable release, check the [Releases](https://github.com/theanine3D/mat-batch-tools/releases).
 - After downloading either of the above, go into Blender's addon preferences (File → Preferences → Addons)
