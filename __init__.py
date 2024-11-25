@@ -9,7 +9,7 @@ bl_info = {
     "name": "Material Batch Tools",
     "description": "Batch tools for quickly modifying, copying, and pasting nodes on all materials in selected objects",
     "author": "Theanine3D",
-    "version": (1, 3, 1),
+    "version": (1, 4, 0),
     "blender": (3, 0, 0),
     "category": "Material",
     "location": "Properties -> Material Properties",
@@ -95,6 +95,58 @@ def display_msg_box(message="", title="Info", icon='INFO'):
 
     bpy.context.window_manager.popup_menu(draw, title=title, icon=icon)
 
+def update_alpha_settings(mat, alpha_mode, shadow_mode, alpha_threshold):
+    if bpy.app.version >= (4, 2, 0):
+
+        if alpha_mode is not "CLIP":
+            # Remove the Math "Greater Than" node if one exists
+            for node in bpy.data.materials[mat].node_tree.nodes:
+                if node.type == 'MATH' and node.operation == "GREATER_THAN":
+                    bpy.data.materials[mat].node_tree.nodes.remove(node)
+                    break
+
+        if alpha_mode == "BLEND":
+            alpha_mode = "BLENDED"
+                
+        elif alpha_mode == "CLIP":
+            greaterthan_node = None
+            img_tex_node = None
+            principled_node = None
+            mix_shader_node = None
+
+            # Search for existing nodes first
+            for node in bpy.data.materials[mat].node_tree.nodes:
+                if node.type == 'MATH' and node.operation == "GREATER_THAN":
+                    greaterthan_node = node
+                    continue
+                elif node.type == 'TEX_IMAGE' and node.image:
+                    img_tex_node = node
+                    continue
+                elif node.type == 'MIX_SHADER':
+                    mix_shader_node = node
+                    continue
+                elif node.type == "BSDF_PRINCIPLED":
+                    principled_node = node
+                    continue
+            if img_tex_node is not None and (principled_node is not None or mix_shader_node is not None):
+                if greaterthan_node is None:
+                    greaterthan_node = bpy.data.materials[mat].node_tree.nodes.new(type='ShaderNodeMath')
+                    greaterthan_node.operation = "GREATER_THAN"
+                greaterthan_node.location = (img_tex_node.location.x + 100, img_tex_node.location.y - 286)
+                bpy.data.materials[mat].node_tree.links.new(img_tex_node.outputs[1], greaterthan_node.inputs[0])
+                if principled_node is not None:
+                    bpy.data.materials[mat].node_tree.links.new(greaterthan_node.outputs[0], principled_node.inputs[4])
+                elif mix_shader_node is not None:
+                    bpy.data.materials[mat].node_tree.links.new(greaterthan_node.outputs[0], mix_shader_node.inputs[0])
+            alpha_mode = "DITHERED"
+        else:
+            alpha_mode = "DITHERED"
+
+        bpy.data.materials[mat].surface_render_method = alpha_mode
+    else:
+        bpy.data.materials[mat].blend_method = alpha_mode
+        bpy.data.materials[mat].shadow_method = shadow_mode
+        bpy.data.materials[mat].alpha_threshold = alpha_threshold
 
 def recursive_node_search(startnode, end_node_type):
     '''Searches into a node's links for a specific node type. Search ends if a node of the specified type is found, or if .'''
@@ -673,30 +725,21 @@ class SetBlendMode(bpy.types.Operator):
                             for node in bpy.data.materials[mat].node_tree.nodes:
                                 if node.type == "BSDF_PRINCIPLED":
                                     if len(node.inputs[21].links) > 0:
-                                        bpy.data.materials[mat].blend_method = alpha_mode
-                                        bpy.data.materials[mat].shadow_method = shadow_mode
-                                        bpy.data.materials[mat].alpha_threshold = alpha_threshold
+                                        update_alpha_settings(mat, alpha_mode, shadow_mode, alpha_threshold)
                                         break
                                     else:
                                         if node.inputs[21].default_value < 1.0:
-                                            bpy.data.materials[mat].blend_method = alpha_mode
-                                            bpy.data.materials[mat].shadow_method = shadow_mode
-                                            bpy.data.materials[mat].alpha_threshold = alpha_threshold
+                                            update_alpha_settings(mat, alpha_mode, shadow_mode, alpha_threshold)
                                             break
 
                         # Filter 2 - Transparent BSDF
                         elif filter_mode == "TRANSPARENTNODE":
                             for node in bpy.data.materials[mat].node_tree.nodes:
-                                if node.type == "BSDF_TRANSPARENT":
-                                    bpy.data.materials[mat].blend_method = alpha_mode
-                                    bpy.data.materials[mat].shadow_method = shadow_mode
-                                    bpy.data.materials[mat].alpha_threshold = alpha_threshold
+                                    update_alpha_settings(mat, alpha_mode, shadow_mode, alpha_threshold)
                                     break
 
                         else:
-                            bpy.data.materials[mat].blend_method = alpha_mode
-                            bpy.data.materials[mat].shadow_method = shadow_mode
-                            bpy.data.materials[mat].alpha_threshold = alpha_threshold
+                            update_alpha_settings(mat, alpha_mode, shadow_mode, alpha_threshold)
                             continue
                     obj.data.update()
 
@@ -965,9 +1008,14 @@ class ApplyMatTemplate(bpy.types.Operator):
                             if material and material.use_nodes:
 
                                 match target_template:
+
                                     case "ECT":
-                                        material.blend_method = "OPAQUE"
-                                        
+
+                                        if bpy.app.version >= (4, 2, 0):
+                                            material.surface_render_method = 'DITHERED'
+                                        else:
+                                            material.blend_method = 'OPAQUE'
+
                                         # Store the image of the existing image texture node (if any)
                                         stored_image = None
                                         for node in material.node_tree.nodes:
@@ -1037,7 +1085,10 @@ class ApplyMatTemplate(bpy.types.Operator):
 
                                     case "EC":
 
-                                        material.blend_method = "OPAQUE"
+                                        if bpy.app.version >= (4, 2, 0):
+                                            material.surface_render_method = 'DITHERED'
+                                        else:
+                                            material.blend_method = 'OPAQUE'
 
                                         # Clear existing nodes
                                         material.node_tree.nodes.clear()
@@ -1067,7 +1118,10 @@ class ApplyMatTemplate(bpy.types.Operator):
 
                                     case "ACCT":
 
-                                        material.blend_method = "CLIP"
+                                        if bpy.app.version >= (4, 2, 0):
+                                            material.surface_render_method = 'DITHERED'
+                                        else:
+                                            material.blend_method = 'CLIP'
                                         
                                         # Store the image of the existing image texture node (if any)
                                         stored_image = None
@@ -1147,6 +1201,18 @@ class ApplyMatTemplate(bpy.types.Operator):
                                         links.new(transparent_node.outputs[0], mix_shader_node.inputs[1])
                                         links.new(img_texture_node.outputs[1], mix_shader_node.inputs[0])
                                         links.new(mix_shader_node.outputs[0], material_output_node.inputs[0])
+
+                                        # Blender 4.2 got rid of the alpha clip setting, so we use the Math node instead
+                                        if bpy.app.version >= (4, 2, 0):
+                                            material.surface_render_method = 'DITHERED'
+                                            greaterthan_node = material.node_tree.nodes.new(type='ShaderNodeMath')
+                                            greaterthan_node.operation = 'GREATER_THAN'
+                                            greaterthan_node.location = (-200,-140)
+                                            links.new(img_texture_node.outputs[1], greaterthan_node.inputs[0])
+                                            links.new(greaterthan_node.outputs[0], mix_shader_node.inputs[0])
+                                        else:
+                                            material.blend_method = "CLIP"
+
 
                                     case "ACT":
 
@@ -1269,7 +1335,10 @@ class ApplyMatTemplate(bpy.types.Operator):
 
                                     case "PT":
 
-                                        material.blend_method = 'OPAQUE'
+                                        if bpy.app.version >= (4, 2, 0):
+                                            material.surface_render_method = 'DITHERED'
+                                        else:
+                                            material.blend_method = 'OPAQUE'
                                         uses_transparency = False
                                         has_alpha_channel = True
 
@@ -1283,7 +1352,7 @@ class ApplyMatTemplate(bpy.types.Operator):
                                                 for output in node.outputs:
                                                     if output.links:
                                                         for link in output.links:
-                                                            if (link.to_node.type == "BSDF_PRINCIPLED" and link.to_socket.identifier == "Alpha") or (link.to_node.type == "MIX_SHADER" and link.to_socket.identifier == "Fac"):
+                                                            if (link.to_node.type == "BSDF_PRINCIPLED" and link.to_socket.identifier == "Alpha") or (link.to_node.type == "MIX_SHADER" and link.to_socket.identifier == "Fac") or (link.to_node.type == "MATH" and link.to_node.operation == "GREATER_THAN"):
                                                                 uses_transparency = True
                                                                 has_alpha_channel = True if output.identifier == "Alpha" else False
                                                                 break
@@ -1323,11 +1392,25 @@ class ApplyMatTemplate(bpy.types.Operator):
                                                 links.new(img_tex_node.outputs[1 if has_alpha_channel else 0],principled_node.inputs[4])
                                             else:
                                                 links.new(img_tex_node.outputs[1 if has_alpha_channel else 0],principled_node.inputs[21])
-                                            material.alpha_threshold = 0.5
-                                            material.blend_method = "CLIP"
+
+                                            if bpy.app.version >= (4, 2, 0):
+                                                material.surface_render_method = 'DITHERED'
+                                                greaterthan_node = material.node_tree.nodes.new(type='ShaderNodeMath')
+                                                greaterthan_node.operation = "GREATER_THAN"
+                                                greaterthan_node.location = (-377, -83)
+                                                img_tex_node.location = (-655, 0)
+                                                uv_map_node.location = (-854, 0)
+                                                links.new(img_tex_node.outputs[1], greaterthan_node.inputs[0])
+                                                links.new(greaterthan_node.outputs[0], principled_node.inputs[4])
+                                            else:
+                                                material.blend_method = "CLIP"
+                                                material.alpha_threshold = 0.5
 
                                     case "PC":
-                                        material.blend_method = 'OPAQUE'
+                                        if bpy.app.version >= (4, 2, 0):
+                                            material.surface_render_method = 'DITHERED'
+                                        else:
+                                            material.blend_method = 'OPAQUE'
 
                                         # Store the image of the existing image texture node (if any)
 
@@ -1360,7 +1443,10 @@ class ApplyMatTemplate(bpy.types.Operator):
 
                                     case "HDRT":
 
-                                        material.blend_method = "BLEND"
+                                        if bpy.app.version >= (4, 2, 0):
+                                            material.surface_render_method = 'BLENDED'
+                                        else:
+                                            material.blend_method = 'OPAQUE'
                                         
                                         # Store the image of the existing image texture node (if any)
                                         stored_image = None
