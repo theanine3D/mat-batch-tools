@@ -1,7 +1,7 @@
 schema_version = "1.0.0"
 
 id = "matbatchtools"
-version = "1.3.2"
+version = "1.4.0"
 name = "Material Batch Tools"
 tagline = "Quick batch automation of common material tasks"
 maintainer = "Theanine3D <theanine3d@gmail.com>"
@@ -16,4 +16,4 @@ blender_version_min = "4.2.0"
 
 license = ["SPDX:GPL-3.0-or-later"]
 
-copyright = ["2024 Pedro Valencia"]
+copyright = ["2025 Pedro Valencia"]
