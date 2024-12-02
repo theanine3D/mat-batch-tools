@@ -98,7 +98,7 @@ def display_msg_box(message="", title="Info", icon='INFO'):
 def update_alpha_settings(mat, alpha_mode, shadow_mode, alpha_threshold):
     if bpy.app.version >= (4, 2, 0):
 
-        if alpha_mode is not "CLIP":
+        if alpha_mode != "CLIP":
             # Remove the Math "Greater Than" node if one exists
             for node in bpy.data.materials[mat].node_tree.nodes:
                 if node.type == 'MATH' and node.operation == "GREATER_THAN":
