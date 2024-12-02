@@ -9,7 +9,7 @@ bl_info = {
     "name": "Material Batch Tools",
     "description": "Batch tools for quickly modifying, copying, and pasting nodes on all materials in selected objects",
     "author": "Theanine3D",
-    "version": (1, 4, 0),
+    "version": (1, 4, 1),
     "blender": (3, 0, 0),
     "category": "Material",
     "location": "Properties -> Material Properties",
