@@ -36,7 +36,7 @@ Finding this addon useful? Please consider starring it ⭐, or donating 🙂<br>
 
 ## Previews:
 #### The interface - found in the Material Properties tab
-![image](https://github.com/theanine3D/mat-batch-tools/assets/88953117/71c60a08-f9b0-4be4-acbe-99db28f240bd)
+![image](https://github.com/user-attachments/assets/6db25d56-e53d-4c76-aef4-9f5956741eaa)
 
 #### Material Templates ####
 ![material templates](https://github.com/theanine3D/mat-batch-tools/assets/88953117/56ec9b27-e3c5-4f90-aa13-68e6ae8bcc0c)
