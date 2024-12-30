@@ -5,7 +5,7 @@ bl_info = {
     "name": "Material Batch Tools",
     "description": "Batch tools for quickly modifying, copying, and pasting nodes on all materials in selected objects",
     "author": "Theanine3D",
-    "version": (1, 5, 0),
+    "version": (1, 5, 1),
     "blender": (3, 0, 0),
     "category": "Material",
     "location": "Properties -> Material Properties",
@@ -2026,6 +2026,8 @@ class IsolateByMatTrait(bpy.types.Operator):
                         materials_matched_count += 1
 
                 if len(matching_faces) > 0:
+                    if len(obj.data.polygons) == len(matching_faces):
+                        continue
                     separated_obj = separate_faces(obj, matching_faces)
                     separated_obj.name = obj.name + "_" + trait
 
