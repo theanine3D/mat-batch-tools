@@ -1,15 +1,11 @@
 import mathutils
 import bpy
-from bpy.utils import(register_class, unregister_class)
-from bpy.types import(Panel, PropertyGroup)
-from bpy.props import(StringProperty, EnumProperty,
-                      FloatProperty, BoolProperty)
 
 bl_info = {
     "name": "Material Batch Tools",
     "description": "Batch tools for quickly modifying, copying, and pasting nodes on all materials in selected objects",
     "author": "Theanine3D",
-    "version": (1, 4, 1),
+    "version": (1, 5, 0),
     "blender": (3, 0, 0),
     "category": "Material",
     "location": "Properties -> Material Properties",
@@ -79,6 +75,12 @@ class MatBatchProperties(bpy.types.PropertyGroup):
                                                                                                                          ], default=0)
     SkipTexture: bpy.props.StringProperty(
         name="Skip Texture", description="Any texture containing this string in its filename will NOT be assigned in any image texture when applying a material template (optional - leave blank if unneeded)", default="", maxlen=200)
+    IsolateCollection: bpy.props.BoolProperty(
+        name="Isolate to Collection", description="If enabled, any isolated meshes are moved to a separate collection for easier finding", default=True)
+    IsolateTrait: bpy.props.EnumProperty(
+        name="Trait", description="The trait to look for in materials, in order to isolate their assigned faces into a separate object", items=[("transparent", 'Transparent', "Material uses alpha transparency, via Transparent BSDF or Principled BSDF's alpha slot.", 0),
+                                                                                                                         ("emissive", 'Emissive', "Material uses Emission shader or Principled BSDF's Emission slot", 1),
+                                                                                                                         ], default=0)
 
 
 # FUNCTION DEFINITIONS
@@ -92,6 +94,7 @@ def display_msg_box(message="", title="Info", icon='INFO'):
         lines = message.split("\n")
         for line in lines:
             self.layout.label(text=line)
+            print(line)
 
     bpy.context.window_manager.popup_menu(draw, title=title, icon=icon)
 
@@ -216,6 +219,66 @@ def check_for_selected(objectOnly=False):
         display_msg_box(
             "At least one mesh object must be selected", "Error", "ERROR")
         return False
+
+def is_node_connected(material, node_to_check):
+    ''' Checks if a specified node is actually connected (indirectly or directly) to the final Material Output'''
+    
+    output_node = None
+    # Find the Material Output node
+    for node in material.node_tree.nodes:
+        if node.type == 'OUTPUT_MATERIAL':
+            output_node = node
+            break
+    
+    if not output_node:
+        return False
+    
+    # Function to recursively check connections
+    def check_connections(current_node):
+        if current_node == node_to_check:
+            return True
+        for input_socket in current_node.inputs:
+            for link in input_socket.links:
+                source_node = link.from_node
+                if check_connections(source_node):
+                    return True
+        return False
+    
+    # Start from the output node and check connections
+    return check_connections(output_node)
+
+def find_faces_with_material(mesh_obj, material_name):
+    if material_name not in mesh_obj.data.materials:
+        return []
+
+    mat_index = mesh_obj.data.materials.find(material_name)
+    faces_with_material = [poly.index for poly in mesh_obj.data.polygons if poly.material_index == mat_index]
+    return faces_with_material
+
+def separate_faces(mesh_obj, face_indices):
+    bpy.ops.object.mode_set(mode='EDIT')
+    bpy.ops.mesh.reveal()
+    bpy.ops.mesh.select_all(action='DESELECT')
+    bpy.ops.mesh.select_mode(use_extend=False, use_expand=False, type='FACE')
+    bpy.ops.object.mode_set(mode='OBJECT')
+
+    for face_index in face_indices:
+        if face_index < len(mesh_obj.data.polygons):
+            mesh_obj.data.polygons[face_index].select = True
+
+    bpy.ops.object.mode_set(mode='EDIT')
+    bpy.ops.mesh.separate(type='SELECTED')
+    bpy.ops.object.mode_set(mode='OBJECT')
+
+    for obj in bpy.context.selected_objects:
+        bpy.context.view_layer.objects.active = obj
+        bpy.ops.object.material_slot_remove_unused()
+
+    mesh_obj.select_set(False)
+    bpy.context.view_layer.objects.active = bpy.context.selected_objects[0]
+    new_obj = bpy.context.active_object
+
+    return new_obj
 
 
 # Bake Target copy operator
@@ -691,6 +754,8 @@ class SetBlendMode(bpy.types.Operator):
         shadow_mode = bpy.context.scene.MatBatchProperties.AlphaBlendMode
         filter_mode = bpy.context.scene.MatBatchProperties.AlphaBlendFilter
         alpha_threshold = bpy.context.scene.MatBatchProperties.AlphaThreshold
+        principled_alpha_slot = 21 if bpy.app.version < (4, 0, 0) else 4
+
         if alpha_mode == "BLEND":
             shadow_mode = "CLIP"
 
@@ -713,7 +778,6 @@ class SetBlendMode(bpy.types.Operator):
 
                         # If user also wants to remove any alpha from the Principled node itself too
                         if bpy.context.scene.MatBatchProperties.AlphaPrincipledRemove == True and alpha_mode == "OPAQUE":
-                            principled_alpha_slot = 21 if bpy.app.version < (4, 0, 0) else 4
                             for node in principled_nodes:
                                 if len(node.inputs[principled_alpha_slot].links) > 0:
                                     bpy.data.materials[mat].node_tree.links.remove(
@@ -724,11 +788,11 @@ class SetBlendMode(bpy.types.Operator):
                         if filter_mode == "PRINCIPLEDNODE":
                             for node in bpy.data.materials[mat].node_tree.nodes:
                                 if node.type == "BSDF_PRINCIPLED":
-                                    if len(node.inputs[21].links) > 0:
+                                    if len(node.inputs[principled_alpha_slot].links) > 0:
                                         update_alpha_settings(mat, alpha_mode, shadow_mode, alpha_threshold)
                                         break
                                     else:
-                                        if node.inputs[21].default_value < 1.0:
+                                        if node.inputs[principled_alpha_slot].default_value < 1.0:
                                             update_alpha_settings(mat, alpha_mode, shadow_mode, alpha_threshold)
                                             break
 
@@ -985,6 +1049,7 @@ class ApplyMatTemplate(bpy.types.Operator):
         list_of_mats = check_for_selected()
         useColorAttributes = bpy.app.version >= (3, 2, 0)
         mix_node_type = "ShaderNodeMixRGB" if bpy.app.version < (3, 4, 0) else "ShaderNodeMix"
+        principled_alpha_slot = 21 if bpy.app.version < (4, 0, 0) else 4
 
         # Check if any objects are selected.
         if list_of_mats != False:
@@ -1388,10 +1453,7 @@ class ApplyMatTemplate(bpy.types.Operator):
 
                                         if uses_transparency:
                                             # Blender 4.0 moved the # of the Principled BSDF's Alpha input
-                                            if bpy.app.version >= (4, 0, 0):
-                                                links.new(img_tex_node.outputs[1 if has_alpha_channel else 0],principled_node.inputs[4])
-                                            else:
-                                                links.new(img_tex_node.outputs[1 if has_alpha_channel else 0],principled_node.inputs[21])
+                                            links.new(img_tex_node.outputs[1 if has_alpha_channel else 0],principled_node.inputs[principled_alpha_slot])
 
                                             if bpy.app.version >= (4, 2, 0):
                                                 material.surface_render_method = 'DITHERED'
@@ -1450,12 +1512,21 @@ class ApplyMatTemplate(bpy.types.Operator):
                                         
                                         # Store the image of the existing image texture node (if any)
                                         stored_image = None
+                                        stored_hdr_image = None
+
                                         for node in material.node_tree.nodes:
                                             if node.type == 'TEX_IMAGE' and node.image:
-
                                                 # An extra check to make sure we're not using the HDR texture as the albedo
                                                 if not ('OPEN_EXR' in node.image.file_format or 'HDR' in node.image.file_format or 'lightmap' in node.image.name_full):
-                                                    stored_image = node.image
+                                                    if is_node_connected(material, node):
+                                                        stored_image = node.image
+                                                        break
+
+                                        for node in material.node_tree.nodes:
+                                            if node.type == 'TEX_IMAGE' and node.image:
+                                                # Find the HDR texture in the material and store it, if one was already present 
+                                                if 'OPEN_EXR' in node.image.file_format or 'HDR' in node.image.file_format or 'lightmap' in node.image.name_full:
+                                                    stored_hdr_image = node.image
                                                     break
 
                                         # Clear existing nodes and check if the designated "skipped texture" was stored
@@ -1501,10 +1572,13 @@ class ApplyMatTemplate(bpy.types.Operator):
                                         emission_node.location = (0, 100)
                                         material_output_node.location = (200, 100)
 
-                                        # Look for an HDR texture already stored in this Blender file.
-                                        for searched_img in bpy.data.images:
-                                            if 'OPEN_EXR' in searched_img.file_format or 'HDR' in searched_img.file_format or 'lightmap' in searched_img.name_full:
-                                                hdr_tex_node.image = searched_img
+                                        # Look for an HDR texture already stored in this Blender file, if one wasn't found earlier
+                                        if stored_hdr_image != None:
+                                            hdr_tex_node.image = stored_hdr_image
+                                        else:
+                                            for searched_img in bpy.data.images:
+                                                if 'OPEN_EXR' in searched_img.file_format or 'HDR' in searched_img.file_format or 'lightmap' in searched_img.name_full:
+                                                    hdr_tex_node.image = searched_img
                                         hdr_tex_node.label = "HDR Lightmap"
                                         uv_hdr_map_node.uv_map = "lightmap"
 
@@ -1852,6 +1926,137 @@ class CopyTexToMatName(bpy.types.Operator):
 
         return {'FINISHED'}
 
+
+# Isolate by Material Trait operator
+
+class IsolateByMatTrait(bpy.types.Operator):
+    """Searches any currently selected meshes for assigned materials with a specific trait, and isolates those polygons into a separate object (and optionally, a dedicated collection)"""
+    bl_idname = "material.isolate_by_trait"
+    bl_label = "Isolate by Material Trait"
+    bl_options = {'REGISTER'}
+
+    def execute(self, context):
+
+        list_of_mats = check_for_selected()
+        isolate_to_collection = bpy.context.scene.MatBatchProperties.IsolateCollection
+        principled_alpha_slot = 21 if bpy.app.version < (4, 0, 0) else 4
+        principled_emissive_color_slot = 19 if bpy.app.version < (4, 0, 0) else 27
+        principled_emissive_strength_slot = 20 if bpy.app.version < (4, 0, 0) else 28
+        trait = bpy.context.scene.MatBatchProperties.IsolateTrait
+        matching_materials = set()
+        separated_objs = set()
+
+        root_collection = None
+
+        # Check if any objects are selected.
+        if list_of_mats != False:
+
+            for obj in bpy.context.selected_objects:
+                if obj.type == "MESH":
+
+                    for mat in list_of_mats:
+
+                        if mat != '':
+
+                            material = bpy.data.materials[mat]
+                            material.use_nodes = True
+
+                            if material and material.use_nodes:
+                                for node in material.node_tree.nodes:
+                                    if is_node_connected(material, node):
+
+                                        if trait == "transparent":
+                                            
+                                            # Transparency scenario 1 - Principled BSDF with alpha input
+                                            if node.type == "BSDF_PRINCIPLED":
+                                                if len(node.inputs[principled_alpha_slot].links) > 0 or node.inputs[principled_alpha_slot].default_value != 1:
+                                                    matching_materials.add(material.name)
+                                                    continue
+
+                                            # Transparency scenario 2 - Transparent BSDF
+                                            elif node.type == "BSDF_TRANSPARENT":
+                                                    matching_materials.add(material.name)
+                                                    continue
+                                            
+                                        if trait == "emissive":
+                                            is_emissive = False
+
+                                            # Emissive scenario 1 - Principled BSDF with emissive input
+                                            if node.type == "BSDF_PRINCIPLED":
+                                                em_color_slot = node.inputs[principled_emissive_color_slot]
+                                                em_strength_slot = node.inputs[principled_emissive_strength_slot]
+                                                if em_strength_slot.default_value != 0.0 or len(em_strength_slot.links) > 0:
+                                                    if len(em_color_slot.links) > 0:
+                                                        is_emissive = True
+                                                    elif list(em_color_slot.default_value) != [0.0,0.0,0.0,1.0] and list(em_color_slot.default_value) != [0.0,0.0,0.0,0.0]:
+                                                        is_emissive = True
+
+                                            # Emissive scenario 2 - Emission shader
+                                            elif node.type == "EMISSION":
+                                                is_emissive = True
+
+                                            if is_emissive:
+                                                matching_materials.add(material.name)
+                                                continue
+                    
+
+        materials_matched_count = 0
+        if len(matching_materials) > 0:
+
+            # Search all selected mesh objects for faces that have this material assigned.
+            mesh_objects = [obj for obj in bpy.context.selected_objects if obj.type == "MESH" and not (obj.name.endswith("_" + trait))]
+            if len(mesh_objects) == 0:
+                display_msg_box(
+                    f'Selected trait has already been fully isolated in the selected object(s).', 'Info', 'INFO')
+                return {'FINISHED'}
+            
+            bpy.ops.object.select_all(action='DESELECT')
+            for obj in mesh_objects:
+                obj.hide_set(False)
+                obj.select_set(True)
+                bpy.context.view_layer.objects.active = obj
+
+                matching_faces = set()
+                for material in matching_materials:
+                    material_matched = False
+                    for face_index in find_faces_with_material(obj, material):
+                        matching_faces.add(face_index)
+                        material_matched = True
+                    if material_matched:
+                        materials_matched_count += 1
+
+                if len(matching_faces) > 0:
+                    separated_obj = separate_faces(obj, matching_faces)
+                    separated_obj.name = obj.name + "_" + trait
+
+                    separated_objs.add(separated_obj)
+            
+            if isolate_to_collection:
+                if trait.capitalize() in bpy.data.collections.keys():
+                    root_collection = bpy.data.collections[trait.capitalize()]
+                else:
+                    root_collection = bpy.data.collections.new(trait.capitalize())
+                    bpy.context.scene.collection.children.link(root_collection)
+
+                for obj in separated_objs:
+                    # Unlink the new collision model from other collections
+                    obj_collections = [
+                        c for c in bpy.data.collections if obj.name in c.objects.keys()]
+                    for c in obj_collections:
+                        if obj.name in c.objects.keys():
+                            c.objects.unlink(obj)
+                    if obj.name in bpy.context.scene.collection.objects.keys():
+                        bpy.context.scene.collection.objects.unlink(obj)
+
+                    root_collection.objects.link(obj)
+                    bpy.context.view_layer.objects.active = obj
+                    obj.select_set(True)
+
+        display_msg_box(
+            f'Isolated {materials_matched_count} {trait} material(s) into {len(separated_objs)} separate object(s).', 'Info', 'INFO')
+        return {'FINISHED'}
+
+
 # End classes
 
 
@@ -1870,6 +2075,7 @@ def menu_func(self, context):
     self.layout.operator(ApplyMatTemplate.bl_idname)
     self.layout.operator(FindActiveFaceTexture.bl_idname)
     self.layout.operator(CopyTexToMatName.bl_idname)
+    self.layout.operator(IsolateByMatTrait.bl_idname)
 
 
 def imageeditor_menu_func(self, context):
@@ -1898,6 +2104,25 @@ class MaterialBatchToolsPanel(bpy.types.Panel):
     def draw(self, context):
         layout = self.layout
         layout.enabled = (len(bpy.context.selected_objects) > 0)
+
+class MaterialBatchToolsSubPanel_Nodes(bpy.types.Panel):
+    bl_parent_id = "MATERIAL_PT_matbatchtools"
+    bl_label = 'Nodes'
+    bl_idname = "MATERIAL_PT_matbatchtools_nodes"
+    bl_space_type = 'PROPERTIES'
+    bl_region_type = 'WINDOW'
+    bl_options = {"DEFAULT_CLOSED"}
+    bl_context = 'material'
+
+    @ classmethod
+    def poll(cls, context):
+        return (context.object != None)
+
+    def draw_header(self, context):
+        layout = self.layout
+
+    def draw(self, context):
+        layout = self.layout
 
         # Node Unify UI
         boxUnify = layout.box()
@@ -1953,11 +2178,27 @@ class MaterialBatchToolsPanel(bpy.types.Panel):
         rowTemplate2.prop(bpy.context.scene.MatBatchProperties, "SkipTexture")
         rowTemplate3.operator("material.apply_mat_template")
 
-        layout.separator()
+class MaterialBatchToolsSubPanel_Transparency(bpy.types.Panel):
+    bl_parent_id = "MATERIAL_PT_matbatchtools"
+    bl_label = 'Transparency'
+    bl_idname = "MATERIAL_PT_matbatchtools_transparency"
+    bl_space_type = 'PROPERTIES'
+    bl_region_type = 'WINDOW'
+    bl_options = {"DEFAULT_CLOSED"}
+    bl_context = 'material'
+
+    @ classmethod
+    def poll(cls, context):
+        return (context.object != None)
+
+    def draw_header(self, context):
+        layout = self.layout
+
+    def draw(self, context):
+        layout = self.layout
 
         # Transparency UI
         boxTransparency = layout.box()
-        boxTransparency.label(text="Transparency")
         rowTransparency1 = boxTransparency.row()
         rowTransparency2 = boxTransparency.row()
         rowTransparency3 = boxTransparency.row()
@@ -1977,13 +2218,13 @@ class MaterialBatchToolsPanel(bpy.types.Panel):
             bpy.context.scene.MatBatchProperties.AlphaBlendMode == "OPAQUE")
         rowTransparency5.operator("material.set_blend_mode")
 
-
 class MaterialBatchToolsSubPanel_UV_VC(bpy.types.Panel):
     bl_parent_id = "MATERIAL_PT_matbatchtools"
     bl_label = 'UV & Vertex Colors'
     bl_idname = "MATERIAL_PT_matbatchtools_uv_vc"
     bl_space_type = 'PROPERTIES'
     bl_region_type = 'WINDOW'
+    bl_options = {"DEFAULT_CLOSED"}
     bl_context = 'material'
 
     @ classmethod
@@ -1995,12 +2236,9 @@ class MaterialBatchToolsSubPanel_UV_VC(bpy.types.Panel):
 
     def draw(self, context):
         layout = self.layout
-        layout.enabled = (len(bpy.context.selected_objects) > 0)
 
         # UV Map Node UI
         boxUVMap1 = layout.box()
-        boxUVMap1.label(text="UV Maps")
-
         rowUVMap1 = boxUVMap1.row()
         rowUVMap2 = boxUVMap1.row()
         rowUVMap3 = boxUVMap1.row()
@@ -2036,6 +2274,35 @@ class MaterialBatchToolsSubPanel_UV_VC(bpy.types.Panel):
         rowVertexColors3.operator("object.rename_vertex_color")
         rowVertexColors4.operator("object.convert_vertex_color")
 
+class MaterialBatchToolsSubPanel_Isolate(bpy.types.Panel):
+    bl_parent_id = "MATERIAL_PT_matbatchtools"
+    bl_label = 'Isolate'
+    bl_idname = "MATERIAL_PT_matbatchtools_isolate"
+    bl_space_type = 'PROPERTIES'
+    bl_region_type = 'WINDOW'
+    bl_options = {"DEFAULT_CLOSED"}
+    bl_context = 'material'
+
+    @ classmethod
+    def poll(cls, context):
+        return (context.object != None)
+
+    def draw_header(self, context):
+        layout = self.layout
+
+    def draw(self, context):
+        layout = self.layout
+
+        # UV Map Node UI
+        boxIsolate = layout.box()
+        rowIsolate1 = boxIsolate.row()
+        rowIsolate2 = boxIsolate.row()
+        rowIsolate3 = boxIsolate.row()
+
+        rowIsolate1.prop(bpy.context.scene.MatBatchProperties, "IsolateCollection")
+        rowIsolate2.prop(bpy.context.scene.MatBatchProperties, "IsolateTrait")
+        rowIsolate3.operator("material.isolate_by_trait")
+
 
 # End of classes
 
@@ -2060,8 +2327,12 @@ classes = (
     CopyActiveFaceTexture,
     PasteActiveFaceTexture,
     CopyTexToMatName,
+    IsolateByMatTrait,
     MaterialBatchToolsPanel,
-    MaterialBatchToolsSubPanel_UV_VC
+    MaterialBatchToolsSubPanel_Nodes,
+    MaterialBatchToolsSubPanel_UV_VC,
+    MaterialBatchToolsSubPanel_Transparency,
+    MaterialBatchToolsSubPanel_Isolate
 )
 
 
