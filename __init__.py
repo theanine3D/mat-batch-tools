@@ -5,7 +5,7 @@ bl_info = {
     "name": "Material Batch Tools",
     "description": "Batch tools for quickly modifying, copying, and pasting nodes on all materials in selected objects",
     "author": "Theanine3D",
-    "version": (1, 5, 1),
+    "version": (2, 0, 1),
     "blender": (3, 0, 0),
     "category": "Material",
     "location": "Properties -> Material Properties",
@@ -75,11 +75,18 @@ class MatBatchProperties(bpy.types.PropertyGroup):
                                                                                                                          ], default=0)
     SkipTexture: bpy.props.StringProperty(
         name="Skip Texture", description="Any texture containing this string in its filename will NOT be assigned in any image texture when applying a material template (optional - leave blank if unneeded)", default="", maxlen=200)
+    BackfaceCamera: bpy.props.BoolProperty(
+        name="Camera", description="Affects whether backface culling is enabled for the active camera. In Blender 4.1 or lower, this setting controls the legacy 'Backface Culling' setting", default=True)
+    BackfaceShadow: bpy.props.BoolProperty(
+        name="Shadow", description="Affects whether backface culling is enabled for shadows. Only supported in Blender 4.2 or higher", default=True)
+    BackfaceLightProbe: bpy.props.BoolProperty(
+        name="Light Probe Volume", description="Affects whether backface culling is enabled for light probe volume capture. Only supported in Blender 4.2 or higher", default=True)
     IsolateCollection: bpy.props.BoolProperty(
         name="Isolate to Collection", description="If enabled, any isolated meshes are moved to a separate collection for easier finding", default=True)
     IsolateTrait: bpy.props.EnumProperty(
         name="Trait", description="The trait to look for in materials, in order to isolate their assigned faces into a separate object", items=[("transparent", 'Transparent', "Material uses alpha transparency, via Transparent BSDF or Principled BSDF's alpha slot.", 0),
                                                                                                                          ("emissive", 'Emissive', "Material uses Emission shader or Principled BSDF's Emission slot", 1),
+                                                                                                                         ("animated", 'Animated', "Material uses an Image Sequence node, or contains animation data from keyframes and/or drivers", 2),
                                                                                                                          ], default=0)
 
 
@@ -205,12 +212,10 @@ def check_for_selected(objectOnly=False):
                 if obj.type == "MESH":
 
                     for mat in obj.material_slots.keys():
-
-                        if mat != '':
-                            list_of_mats.add(mat)
+                        list_of_mats.add(mat)
 
             if len(list_of_mats) > 0:
-                return list(set(list_of_mats))
+                return list_of_mats
             else:
                 display_msg_box(
                     "There are no valid materials in the selected objects", "Error", "ERROR")
@@ -807,6 +812,8 @@ class SetBlendMode(bpy.types.Operator):
                             continue
                     obj.data.update()
 
+        display_msg_box(
+            f'Updated alpha settings for {len(list_of_mats)} material(s).', 'Info', 'INFO')
         return {'FINISHED'}
 
 
@@ -981,54 +988,52 @@ class SwitchShader(bpy.types.Operator):
                     # For each material in selected object
                     for mat in list_of_mats:
 
-                        # Check if there's actually a material in the material slot
-                        if mat != '':
-                            material = bpy.data.materials[mat]
+                        material = bpy.data.materials[mat]
 
-                            # Find the other shader
-                            old_shaders = []
-                            for node in bpy.data.materials[mat].node_tree.nodes:
-                                if node.type == old_shader_type:
-                                    old_shaders.append(node)
-                                    break
+                        # Find the other shader
+                        old_shaders = []
+                        for node in bpy.data.materials[mat].node_tree.nodes:
+                            if node.type == old_shader_type:
+                                old_shaders.append(node)
+                                break
 
-                            # If the old shader wasn't found, skip this material and continue to the next material
-                            if len(old_shaders) == 0:
-                                continue
+                        # If the old shader wasn't found, skip this material and continue to the next material
+                        if len(old_shaders) == 0:
+                            continue
 
-                            # If opposite shader was found:
-                            else:
+                        # If opposite shader was found:
+                        else:
 
-                                for old_shader in old_shaders:
+                            for old_shader in old_shaders:
 
-                                    new_shader = None
-                                    input_node_socket = None
-                                    output_node_socket = None
+                                new_shader = None
+                                input_node_socket = None
+                                output_node_socket = None
 
-                                    if len(old_shader.inputs[0].links) > 0:
-                                        input_node_socket = old_shader.inputs[0].links[0].from_socket
-                                    if len(old_shader.outputs[0].links) > 0:
-                                        output_node_socket = old_shader.outputs[0].links[0].to_socket
+                                if len(old_shader.inputs[0].links) > 0:
+                                    input_node_socket = old_shader.inputs[0].links[0].from_socket
+                                if len(old_shader.outputs[0].links) > 0:
+                                    output_node_socket = old_shader.outputs[0].links[0].to_socket
 
-                                    # Create new shader
-                                    if target_shader_type == "BSDF_PRINCIPLED":
-                                        new_shader = bpy.data.materials[mat].node_tree.nodes.new(
-                                            "ShaderNodeBsdfPrincipled")
+                                # Create new shader
+                                if target_shader_type == "BSDF_PRINCIPLED":
+                                    new_shader = bpy.data.materials[mat].node_tree.nodes.new(
+                                        "ShaderNodeBsdfPrincipled")
 
-                                    if target_shader_type == "EMISSION":
-                                        new_shader = bpy.data.materials[mat].node_tree.nodes.new(
-                                            "ShaderNodeEmission")
+                                if target_shader_type == "EMISSION":
+                                    new_shader = bpy.data.materials[mat].node_tree.nodes.new(
+                                        "ShaderNodeEmission")
 
-                                    # Place the new shader in the old shader's location
-                                    new_shader.location = old_shader.location
-                                    if len(old_shader.inputs[0].links) > 0:
-                                        material.node_tree.links.new(
-                                            new_shader.inputs[0], input_node_socket)
-                                    if len(old_shader.outputs[0].links) > 0:
-                                        material.node_tree.links.new(
-                                            output_node_socket, new_shader.outputs[0])
-                                    material.node_tree.nodes.remove(old_shader)
-                                    num_processed += 1
+                                # Place the new shader in the old shader's location
+                                new_shader.location = old_shader.location
+                                if len(old_shader.inputs[0].links) > 0:
+                                    material.node_tree.links.new(
+                                        new_shader.inputs[0], input_node_socket)
+                                if len(old_shader.outputs[0].links) > 0:
+                                    material.node_tree.links.new(
+                                        output_node_socket, new_shader.outputs[0])
+                                material.node_tree.nodes.remove(old_shader)
+                                num_processed += 1
 
         display_msg_box(
             f'Switched shader in {num_processed} material(s).', 'Info', 'INFO')
@@ -1064,609 +1069,606 @@ class ApplyMatTemplate(bpy.types.Operator):
                     # For each material in selected object
                     for mat in list_of_mats:
 
-                        # Check if there's actually a material in the material slot
-                        if mat != '':
+                        material = bpy.data.materials[mat]
+                        material.use_nodes = True
 
-                            material = bpy.data.materials[mat]
-                            material.use_nodes = True
+                        if material and material.use_nodes:
 
-                            if material and material.use_nodes:
+                            match target_template:
 
-                                match target_template:
+                                case "ECT":
 
-                                    case "ECT":
+                                    if bpy.app.version >= (4, 2, 0):
+                                        material.surface_render_method = 'DITHERED'
+                                    else:
+                                        material.blend_method = 'OPAQUE'
 
-                                        if bpy.app.version >= (4, 2, 0):
-                                            material.surface_render_method = 'DITHERED'
+                                    # Store the image of the existing image texture node (if any)
+                                    stored_image = None
+                                    for node in material.node_tree.nodes:
+                                        if node.type == 'TEX_IMAGE' and node.image:
+                                            stored_image = node.image
+                                            break
+
+                                    # Clear existing nodes
+                                    material.node_tree.nodes.clear()
+                                    if stored_image != None:
+                                        if skip_texture != "":
+                                            if skip_texture in stored_image.filepath:
+                                                stored_image = None
+
+                                    # Create necessary nodes
+                                    uv_map_node = None
+                                    img_tex_node = None
+                                    mix_color_node = None
+                                    if stored_image != None:
+                                        uv_map_node = material.node_tree.nodes.new(type='ShaderNodeUVMap')
+                                        img_texture_node = material.node_tree.nodes.new(type='ShaderNodeTexImage')
+                                        mix_color_node = material.node_tree.nodes.new(type=mix_node_type)
+                                        if "MixRGB" not in mix_node_type:
+                                            mix_color_node.data_type = 'RGBA'
+                                        mix_color_node.blend_type = 'MULTIPLY'
+                                        mix_color_node.inputs[0].default_value = 1.0  # Set the factor to 1.0
+                                        img_texture_node.image = stored_image
+                                        if len(obj.data.uv_layers) > 0:
+                                            uv_map_node.uv_map = obj.data.uv_layers[0].name
+                                    color_attr_node = material.node_tree.nodes.new(type='ShaderNodeVertexColor')
+                                    emission_node = material.node_tree.nodes.new(type='ShaderNodeEmission')
+                                    material_output_node = material.node_tree.nodes.new(type='ShaderNodeOutputMaterial')
+
+                                    # Arrange nodes for clarity
+                                    if stored_image != None:
+                                        img_texture_node.location = (-500, 0)
+                                        mix_color_node.location = (-200, 100)
+                                        uv_map_node.location = (-700, 0)
+                                    color_attr_node.location = (-400, 150)
+                                    emission_node.location = (0, 100)
+                                    material_output_node.location = (200, 100)
+
+                                    # Add correct Vertex Color name
+                                    if useColorAttributes:
+                                        if len(obj.data.color_attributes) > 0:
+                                            color_attr_node.layer_name = obj.data.color_attributes[0].name
+                                    else:
+                                        if len(obj.data.vertex_colors) > 0:
+                                            color_attr_node.layer_name = obj.data.vertex_colors[0].name
+
+                                    # Link nodes
+                                    links = material.node_tree.links
+                                    if stored_image != None:
+                                        if "MixRGB" not in mix_node_type:
+                                            links.new(img_texture_node.outputs[0], mix_color_node.inputs[7])
+                                            links.new(color_attr_node.outputs[0], mix_color_node.inputs[6])
+                                            links.new(mix_color_node.outputs[2], emission_node.inputs[0])
                                         else:
-                                            material.blend_method = 'OPAQUE'
-
-                                        # Store the image of the existing image texture node (if any)
-                                        stored_image = None
-                                        for node in material.node_tree.nodes:
-                                            if node.type == 'TEX_IMAGE' and node.image:
-                                                stored_image = node.image
-                                                break
-
-                                        # Clear existing nodes
-                                        material.node_tree.nodes.clear()
-                                        if stored_image != None:
-                                            if skip_texture != "":
-                                                if skip_texture in stored_image.filepath:
-                                                    stored_image = None
-
-                                        # Create necessary nodes
-                                        uv_map_node = None
-                                        img_tex_node = None
-                                        mix_color_node = None
-                                        if stored_image != None:
-                                            uv_map_node = material.node_tree.nodes.new(type='ShaderNodeUVMap')
-                                            img_texture_node = material.node_tree.nodes.new(type='ShaderNodeTexImage')
-                                            mix_color_node = material.node_tree.nodes.new(type=mix_node_type)
-                                            if "MixRGB" not in mix_node_type:
-                                                mix_color_node.data_type = 'RGBA'
-                                            mix_color_node.blend_type = 'MULTIPLY'
-                                            mix_color_node.inputs[0].default_value = 1.0  # Set the factor to 1.0
-                                            img_texture_node.image = stored_image
-                                            if len(obj.data.uv_layers) > 0:
-                                                uv_map_node.uv_map = obj.data.uv_layers[0].name
-                                        color_attr_node = material.node_tree.nodes.new(type='ShaderNodeVertexColor')
-                                        emission_node = material.node_tree.nodes.new(type='ShaderNodeEmission')
-                                        material_output_node = material.node_tree.nodes.new(type='ShaderNodeOutputMaterial')
-
-                                        # Arrange nodes for clarity
-                                        if stored_image != None:
-                                            img_texture_node.location = (-500, 0)
-                                            mix_color_node.location = (-200, 100)
-                                            uv_map_node.location = (-700, 0)
-                                        color_attr_node.location = (-400, 150)
-                                        emission_node.location = (0, 100)
-                                        material_output_node.location = (200, 100)
-
-                                        # Add correct Vertex Color name
-                                        if useColorAttributes:
-                                            if len(obj.data.color_attributes) > 0:
-                                                color_attr_node.layer_name = obj.data.color_attributes[0].name
-                                        else:
-                                            if len(obj.data.vertex_colors) > 0:
-                                                color_attr_node.layer_name = obj.data.vertex_colors[0].name
-
-                                        # Link nodes
-                                        links = material.node_tree.links
-                                        if stored_image != None:
-                                            if "MixRGB" not in mix_node_type:
-                                                links.new(img_texture_node.outputs[0], mix_color_node.inputs[7])
-                                                links.new(color_attr_node.outputs[0], mix_color_node.inputs[6])
-                                                links.new(mix_color_node.outputs[2], emission_node.inputs[0])
-                                            else:
-                                                links.new(img_texture_node.outputs[0], mix_color_node.inputs[2])
-                                                links.new(color_attr_node.outputs[0], mix_color_node.inputs[1])
-                                                links.new(mix_color_node.outputs[0], emission_node.inputs[0])
-                                            links.new(emission_node.outputs[0], material_output_node.inputs[0])
-                                            links.new(uv_map_node.outputs[0], img_texture_node.inputs[0])
-                                        else:
-                                            links.new(color_attr_node.outputs[0], emission_node.inputs[0])
-                                            links.new(emission_node.outputs[0], material_output_node.inputs[0])
-
-                                    case "EC":
-
-                                        if bpy.app.version >= (4, 2, 0):
-                                            material.surface_render_method = 'DITHERED'
-                                        else:
-                                            material.blend_method = 'OPAQUE'
-
-                                        # Clear existing nodes
-                                        material.node_tree.nodes.clear()
-
-                                        # Create necessary nodes
-                                        color_attr_node = material.node_tree.nodes.new(type='ShaderNodeVertexColor')
-                                        emission_node = material.node_tree.nodes.new(type='ShaderNodeEmission')
-                                        material_output_node = material.node_tree.nodes.new(type='ShaderNodeOutputMaterial')
-
-                                        # Arrange nodes for clarity
-                                        color_attr_node.location = (-200, 100)
-                                        emission_node.location = (0, 100)
-                                        material_output_node.location = (200, 100)
-
-                                        # Add correct Vertex Color name
-                                        if useColorAttributes:
-                                            if len(obj.data.color_attributes) > 0:
-                                                color_attr_node.layer_name = obj.data.color_attributes[0].name
-                                        else:
-                                            if len(obj.data.vertex_colors) > 0:
-                                                color_attr_node.layer_name = obj.data.vertex_colors[0].name
-
-                                        # Link nodes
-                                        links = material.node_tree.links
+                                            links.new(img_texture_node.outputs[0], mix_color_node.inputs[2])
+                                            links.new(color_attr_node.outputs[0], mix_color_node.inputs[1])
+                                            links.new(mix_color_node.outputs[0], emission_node.inputs[0])
+                                        links.new(emission_node.outputs[0], material_output_node.inputs[0])
+                                        links.new(uv_map_node.outputs[0], img_texture_node.inputs[0])
+                                    else:
                                         links.new(color_attr_node.outputs[0], emission_node.inputs[0])
                                         links.new(emission_node.outputs[0], material_output_node.inputs[0])
 
-                                    case "ACCT":
+                                case "EC":
 
-                                        if bpy.app.version >= (4, 2, 0):
-                                            material.surface_render_method = 'DITHERED'
+                                    if bpy.app.version >= (4, 2, 0):
+                                        material.surface_render_method = 'DITHERED'
+                                    else:
+                                        material.blend_method = 'OPAQUE'
+
+                                    # Clear existing nodes
+                                    material.node_tree.nodes.clear()
+
+                                    # Create necessary nodes
+                                    color_attr_node = material.node_tree.nodes.new(type='ShaderNodeVertexColor')
+                                    emission_node = material.node_tree.nodes.new(type='ShaderNodeEmission')
+                                    material_output_node = material.node_tree.nodes.new(type='ShaderNodeOutputMaterial')
+
+                                    # Arrange nodes for clarity
+                                    color_attr_node.location = (-200, 100)
+                                    emission_node.location = (0, 100)
+                                    material_output_node.location = (200, 100)
+
+                                    # Add correct Vertex Color name
+                                    if useColorAttributes:
+                                        if len(obj.data.color_attributes) > 0:
+                                            color_attr_node.layer_name = obj.data.color_attributes[0].name
+                                    else:
+                                        if len(obj.data.vertex_colors) > 0:
+                                            color_attr_node.layer_name = obj.data.vertex_colors[0].name
+
+                                    # Link nodes
+                                    links = material.node_tree.links
+                                    links.new(color_attr_node.outputs[0], emission_node.inputs[0])
+                                    links.new(emission_node.outputs[0], material_output_node.inputs[0])
+
+                                case "ACCT":
+
+                                    if bpy.app.version >= (4, 2, 0):
+                                        material.surface_render_method = 'DITHERED'
+                                    else:
+                                        material.blend_method = 'CLIP'
+                                    
+                                    # Store the image of the existing image texture node (if any)
+                                    stored_image = None
+                                    for node in material.node_tree.nodes:
+                                        if node.type == 'TEX_IMAGE' and node.image:
+                                            stored_image = node.image
+                                            break
+
+                                    # Clear existing nodes
+                                    material.node_tree.nodes.clear()
+                                    if stored_image != None:
+                                        if skip_texture != "":
+                                            if skip_texture in stored_image.filepath:
+                                                stored_image = None
+
+                                    # Create necessary nodes
+                                    if stored_image is not None:
+                                        uv_map_node = material.node_tree.nodes.new(type='ShaderNodeUVMap')
+                                        img_texture_node = material.node_tree.nodes.new(type='ShaderNodeTexImage')
+                                        mix_color_node = material.node_tree.nodes.new(type=mix_node_type)
+                                        if "MixRGB" not in mix_node_type:
+                                            mix_color_node.data_type = 'RGBA'
+                                        mix_color_node.blend_type = 'MULTIPLY'
+                                        mix_color_node.inputs[0].default_value = 1.0  # Set the factor to 1.0
+                                        img_texture_node.image = stored_image
+                                        if len(obj.data.uv_layers) > 0:
+                                            uv_map_node.uv_map = obj.data.uv_layers[0].name
+
+                                    color_attr_node = material.node_tree.nodes.new(type='ShaderNodeVertexColor')
+                                    emission_node = material.node_tree.nodes.new(type='ShaderNodeEmission')
+                                    material_output_node = material.node_tree.nodes.new(type='ShaderNodeOutputMaterial')
+                                    mix_shader_node = material.node_tree.nodes.new(type='ShaderNodeMixShader')
+                                    transparent_node = material.node_tree.nodes.new(type='ShaderNodeBsdfTransparent')
+
+                                    material.alpha_threshold = 0.5
+
+                                    # Add correct Vertex Color name
+                                    if useColorAttributes:
+                                        if len(obj.data.color_attributes) > 0:
+                                            color_attr_node.layer_name = obj.data.color_attributes[0].name
+                                    else:
+                                        if len(obj.data.vertex_colors) > 0:
+                                            color_attr_node.layer_name = obj.data.vertex_colors[0].name
+
+                                    # Arrange nodes for clarity
+                                    if stored_image is not None:
+                                        uv_map_node.location = (-700, 0)
+                                        img_texture_node.location = (-500, 0)
+                                        mix_color_node.location = (-200, 100)
+
+                                    color_attr_node.location = (-400, 150)
+                                    emission_node.location = (0, 100)
+                                    mix_shader_node.location = (200, 100)
+                                    transparent_node.location = (0, -100)
+                                    material_output_node.location = (400, 100)
+
+                                    # Link nodes
+                                    links = material.node_tree.links
+                                    if stored_image is not None:
+                                        links.new(uv_map_node.outputs[0], img_texture_node.inputs[0])
+                                        links.new(img_texture_node.outputs[0], mix_color_node.inputs[2])
+
+                                        if "MixRGB" not in mix_node_type:
+                                            links.new(img_texture_node.outputs[0], mix_color_node.inputs[7])
+                                            links.new(color_attr_node.outputs[0], mix_color_node.inputs[6])
+                                            links.new(mix_color_node.outputs[2], emission_node.inputs[0])
                                         else:
-                                            material.blend_method = 'CLIP'
-                                        
-                                        # Store the image of the existing image texture node (if any)
-                                        stored_image = None
-                                        for node in material.node_tree.nodes:
-                                            if node.type == 'TEX_IMAGE' and node.image:
-                                                stored_image = node.image
-                                                break
-
-                                        # Clear existing nodes
-                                        material.node_tree.nodes.clear()
-                                        if stored_image != None:
-                                            if skip_texture != "":
-                                                if skip_texture in stored_image.filepath:
-                                                    stored_image = None
-
-                                        # Create necessary nodes
-                                        if stored_image is not None:
-                                            uv_map_node = material.node_tree.nodes.new(type='ShaderNodeUVMap')
-                                            img_texture_node = material.node_tree.nodes.new(type='ShaderNodeTexImage')
-                                            mix_color_node = material.node_tree.nodes.new(type=mix_node_type)
-                                            if "MixRGB" not in mix_node_type:
-                                                mix_color_node.data_type = 'RGBA'
-                                            mix_color_node.blend_type = 'MULTIPLY'
-                                            mix_color_node.inputs[0].default_value = 1.0  # Set the factor to 1.0
-                                            img_texture_node.image = stored_image
-                                            if len(obj.data.uv_layers) > 0:
-                                                uv_map_node.uv_map = obj.data.uv_layers[0].name
-
-                                        color_attr_node = material.node_tree.nodes.new(type='ShaderNodeVertexColor')
-                                        emission_node = material.node_tree.nodes.new(type='ShaderNodeEmission')
-                                        material_output_node = material.node_tree.nodes.new(type='ShaderNodeOutputMaterial')
-                                        mix_shader_node = material.node_tree.nodes.new(type='ShaderNodeMixShader')
-                                        transparent_node = material.node_tree.nodes.new(type='ShaderNodeBsdfTransparent')
-
-                                        material.alpha_threshold = 0.5
-
-                                        # Add correct Vertex Color name
-                                        if useColorAttributes:
-                                            if len(obj.data.color_attributes) > 0:
-                                                color_attr_node.layer_name = obj.data.color_attributes[0].name
-                                        else:
-                                            if len(obj.data.vertex_colors) > 0:
-                                                color_attr_node.layer_name = obj.data.vertex_colors[0].name
-
-                                        # Arrange nodes for clarity
-                                        if stored_image is not None:
-                                            uv_map_node.location = (-700, 0)
-                                            img_texture_node.location = (-500, 0)
-                                            mix_color_node.location = (-200, 100)
-
-                                        color_attr_node.location = (-400, 150)
-                                        emission_node.location = (0, 100)
-                                        mix_shader_node.location = (200, 100)
-                                        transparent_node.location = (0, -100)
-                                        material_output_node.location = (400, 100)
-
-                                        # Link nodes
-                                        links = material.node_tree.links
-                                        if stored_image is not None:
-                                            links.new(uv_map_node.outputs[0], img_texture_node.inputs[0])
                                             links.new(img_texture_node.outputs[0], mix_color_node.inputs[2])
+                                            links.new(color_attr_node.outputs[0], mix_color_node.inputs[1])
+                                            links.new(mix_color_node.outputs[0], emission_node.inputs[0])
+                                    else:
+                                        links.new(color_attr_node.outputs[0], emission_node.inputs[0])
+                                        links.new(emission_node.outputs[0], material_output_node.inputs[0])
 
-                                            if "MixRGB" not in mix_node_type:
-                                                links.new(img_texture_node.outputs[0], mix_color_node.inputs[7])
-                                                links.new(color_attr_node.outputs[0], mix_color_node.inputs[6])
-                                                links.new(mix_color_node.outputs[2], emission_node.inputs[0])
-                                            else:
-                                                links.new(img_texture_node.outputs[0], mix_color_node.inputs[2])
-                                                links.new(color_attr_node.outputs[0], mix_color_node.inputs[1])
-                                                links.new(mix_color_node.outputs[0], emission_node.inputs[0])
+                                    # Mix Shader links
+                                    links.new(emission_node.outputs[0], mix_shader_node.inputs[2])
+                                    links.new(transparent_node.outputs[0], mix_shader_node.inputs[1])
+                                    links.new(img_texture_node.outputs[1], mix_shader_node.inputs[0])
+                                    links.new(mix_shader_node.outputs[0], material_output_node.inputs[0])
+
+                                    # Blender 4.2 got rid of the alpha clip setting, so we use the Math node instead
+                                    if bpy.app.version >= (4, 2, 0):
+                                        material.surface_render_method = 'DITHERED'
+                                        greaterthan_node = material.node_tree.nodes.new(type='ShaderNodeMath')
+                                        greaterthan_node.operation = 'GREATER_THAN'
+                                        greaterthan_node.location = (-200,-140)
+                                        links.new(img_texture_node.outputs[1], greaterthan_node.inputs[0])
+                                        links.new(greaterthan_node.outputs[0], mix_shader_node.inputs[0])
+                                    else:
+                                        material.blend_method = "CLIP"
+
+
+                                case "ACT":
+
+                                    material.blend_method = "BLEND"
+                                    
+                                    # Store the image of the existing image texture node (if any)
+                                    stored_image = None
+                                    for node in material.node_tree.nodes:
+                                        if node.type == 'TEX_IMAGE' and node.image:
+                                            stored_image = node.image
+                                            break
+
+                                    # Clear existing nodes
+                                    material.node_tree.nodes.clear()
+                                    if stored_image != None:
+                                        if skip_texture != "":
+                                            if skip_texture in stored_image.filepath:
+                                                stored_image = None
+
+                                    # Create necessary nodes
+                                    if stored_image is not None:
+                                        uv_map_node = material.node_tree.nodes.new(type='ShaderNodeUVMap')
+                                        img_texture_node = material.node_tree.nodes.new(type='ShaderNodeTexImage')
+                                        mix_color_node = material.node_tree.nodes.new(type=mix_node_type)
+                                        if "MixRGB" not in mix_node_type:
+                                            mix_color_node.data_type = 'RGBA'
+                                        mix_color_node.blend_type = 'MULTIPLY'
+                                        mix_color_node.inputs[0].default_value = 1.0  # Set the factor to 1.0
+                                        img_texture_node.image = stored_image
+                                        if len(obj.data.uv_layers) > 0:
+                                            uv_map_node.uv_map = obj.data.uv_layers[0].name
+
+                                    color_attr_node = material.node_tree.nodes.new(type='ShaderNodeVertexColor')
+                                    emission_node = material.node_tree.nodes.new(type='ShaderNodeEmission')
+                                    material_output_node = material.node_tree.nodes.new(type='ShaderNodeOutputMaterial')
+                                    add_shader_node = material.node_tree.nodes.new(type='ShaderNodeAddShader')
+                                    transparent_node = material.node_tree.nodes.new(type='ShaderNodeBsdfTransparent')
+
+                                    # Add correct Vertex Color name
+                                    if useColorAttributes:
+                                        if len(obj.data.color_attributes) > 0:
+                                            color_attr_node.layer_name = obj.data.color_attributes[0].name
+                                    else:
+                                        if len(obj.data.vertex_colors) > 0:
+                                            color_attr_node.layer_name = obj.data.vertex_colors[0].name
+
+                                    # Arrange nodes for clarity
+                                    if stored_image is not None:
+                                        uv_map_node.location = (-700, 0)
+                                        img_texture_node.location = (-500, 0)
+                                        mix_color_node.location = (-200, 100)
+
+                                    color_attr_node.location = (-400, 150)
+                                    emission_node.location = (0, 100)
+                                    add_shader_node.location = (200, 100)
+                                    transparent_node.location = (0, -100)
+                                    material_output_node.location = (400, 100)
+
+                                    # Link nodes
+                                    links = material.node_tree.links
+                                    if stored_image is not None:
+                                        links.new(uv_map_node.outputs[0], img_texture_node.inputs[0])
+                                        links.new(img_texture_node.outputs[0], mix_color_node.inputs[2])
+
+                                        if "MixRGB" not in mix_node_type:
+                                            links.new(img_texture_node.outputs[0], mix_color_node.inputs[7])
+                                            links.new(color_attr_node.outputs[0], mix_color_node.inputs[6])
+                                            links.new(mix_color_node.outputs[2], emission_node.inputs[0])
                                         else:
-                                            links.new(color_attr_node.outputs[0], emission_node.inputs[0])
-                                            links.new(emission_node.outputs[0], material_output_node.inputs[0])
+                                            links.new(img_texture_node.outputs[0], mix_color_node.inputs[2])
+                                            links.new(color_attr_node.outputs[0], mix_color_node.inputs[1])
+                                            links.new(mix_color_node.outputs[0], emission_node.inputs[0])
+                                    else:
+                                        links.new(color_attr_node.outputs[0], emission_node.inputs[0])
+                                        links.new(emission_node.outputs[0], material_output_node.inputs[0])
 
-                                        # Mix Shader links
-                                        links.new(emission_node.outputs[0], mix_shader_node.inputs[2])
-                                        links.new(transparent_node.outputs[0], mix_shader_node.inputs[1])
-                                        links.new(img_texture_node.outputs[1], mix_shader_node.inputs[0])
-                                        links.new(mix_shader_node.outputs[0], material_output_node.inputs[0])
+                                    # Additive links
+                                    links.new(emission_node.outputs[0], add_shader_node.inputs[0])
+                                    links.new(transparent_node.outputs[0], add_shader_node.inputs[1])
+                                    links.new(add_shader_node.outputs[0], material_output_node.inputs[0])
 
-                                        # Blender 4.2 got rid of the alpha clip setting, so we use the Math node instead
+                                case "AC":
+
+                                    material.blend_method = "BLEND"
+
+                                    # Clear existing nodes
+                                    material.node_tree.nodes.clear()
+
+                                    # Create necessary nodes
+                                    color_attr_node = material.node_tree.nodes.new(type='ShaderNodeVertexColor')
+                                    emission_node = material.node_tree.nodes.new(type='ShaderNodeEmission')
+                                    material_output_node = material.node_tree.nodes.new(type='ShaderNodeOutputMaterial')
+                                    add_shader_node = material.node_tree.nodes.new(type='ShaderNodeAddShader')
+                                    transparent_node = material.node_tree.nodes.new(type='ShaderNodeBsdfTransparent')
+
+                                    # Add correct Vertex Color name
+                                    if useColorAttributes:
+                                        if len(obj.data.color_attributes) > 0:
+                                            color_attr_node.layer_name = obj.data.color_attributes[0].name
+                                    else:
+                                        if len(obj.data.vertex_colors) > 0:
+                                            color_attr_node.layer_name = obj.data.vertex_colors[0].name
+
+                                    # Arrange nodes for clarity
+                                    color_attr_node.location = (-200, 100)
+                                    emission_node.location = (0, 100)
+                                    add_shader_node.location = (200, 100)
+                                    transparent_node.location = (0, -100)
+                                    material_output_node.location = (400, 100)
+
+                                    # Link nodes
+                                    links = material.node_tree.links
+                                    links.new(color_attr_node.outputs[0], emission_node.inputs[0])
+                                    links.new(emission_node.outputs[0], material_output_node.inputs[0])
+
+                                    # Additive links
+                                    links.new(emission_node.outputs[0], add_shader_node.inputs[0])
+                                    links.new(transparent_node.outputs[0], add_shader_node.inputs[1])
+                                    links.new(add_shader_node.outputs[0], material_output_node.inputs[0])
+
+                                case "PT":
+
+                                    if bpy.app.version >= (4, 2, 0):
+                                        material.surface_render_method = 'DITHERED'
+                                    else:
+                                        material.blend_method = 'OPAQUE'
+                                    uses_transparency = False
+                                    has_alpha_channel = True
+
+                                    # Store the image of the existing image texture node (if any)
+                                    stored_image = None
+                                    for node in material.node_tree.nodes:
+                                        if node.type == 'TEX_IMAGE' and node.image:
+                                            stored_image = node.image
+
+                                            # Check if the found texture (if any) was being used for transparency previously
+                                            for output in node.outputs:
+                                                if output.links:
+                                                    for link in output.links:
+                                                        if (link.to_node.type == "BSDF_PRINCIPLED" and link.to_socket.identifier == "Alpha") or (link.to_node.type == "MIX_SHADER" and link.to_socket.identifier == "Fac") or (link.to_node.type == "MATH" and link.to_node.operation == "GREATER_THAN"):
+                                                            uses_transparency = True
+                                                            has_alpha_channel = True if output.identifier == "Alpha" else False
+                                                            break
+                                            break
+
+                                    nodes = material.node_tree.nodes
+                                    links = material.node_tree.links
+
+                                    nodes.clear()
+
+                                    # Create nodes: UV Map, Image Texture, Principled BSDF, Material Output
+                                    if stored_image != None:
+                                        uv_map_node = nodes.new(type='ShaderNodeUVMap')
+                                        img_tex_node = nodes.new(type='ShaderNodeTexImage')
+                                        if len(obj.data.uv_layers) > 0:
+                                            uv_map_node.uv_map = obj.data.uv_layers[0].name
+                                        img_tex_node.image = stored_image
+                                    principled_node = nodes.new(type='ShaderNodeBsdfPrincipled')
+                                    material_output_node = nodes.new(type='ShaderNodeOutputMaterial')
+
+                                    # Set positions for the nodes
+                                    if stored_image != None:
+                                        uv_map_node.location = (-700, 0)
+                                        img_tex_node.location = (-500, 0)
+                                    principled_node.location = (-200, 0)
+                                    material_output_node.location = (100, 0)
+
+                                    # Create links between nodes
+                                    if stored_image != None:
+                                        links.new(uv_map_node.outputs[0], img_tex_node.inputs[0])
+                                        links.new(img_tex_node.outputs[0], principled_node.inputs[0])
+                                    links.new(principled_node.outputs[0], material_output_node.inputs[0])
+
+                                    if uses_transparency:
+                                        # Blender 4.0 moved the # of the Principled BSDF's Alpha input
+                                        links.new(img_tex_node.outputs[1 if has_alpha_channel else 0],principled_node.inputs[principled_alpha_slot])
+
                                         if bpy.app.version >= (4, 2, 0):
                                             material.surface_render_method = 'DITHERED'
                                             greaterthan_node = material.node_tree.nodes.new(type='ShaderNodeMath')
-                                            greaterthan_node.operation = 'GREATER_THAN'
-                                            greaterthan_node.location = (-200,-140)
-                                            links.new(img_texture_node.outputs[1], greaterthan_node.inputs[0])
-                                            links.new(greaterthan_node.outputs[0], mix_shader_node.inputs[0])
+                                            greaterthan_node.operation = "GREATER_THAN"
+                                            greaterthan_node.location = (-377, -83)
+                                            img_tex_node.location = (-655, 0)
+                                            uv_map_node.location = (-854, 0)
+                                            links.new(img_tex_node.outputs[1], greaterthan_node.inputs[0])
+                                            links.new(greaterthan_node.outputs[0], principled_node.inputs[4])
                                         else:
                                             material.blend_method = "CLIP"
+                                            material.alpha_threshold = 0.5
 
+                                case "PC":
+                                    if bpy.app.version >= (4, 2, 0):
+                                        material.surface_render_method = 'DITHERED'
+                                    else:
+                                        material.blend_method = 'OPAQUE'
 
-                                    case "ACT":
+                                    # Store the image of the existing image texture node (if any)
 
-                                        material.blend_method = "BLEND"
-                                        
-                                        # Store the image of the existing image texture node (if any)
-                                        stored_image = None
-                                        for node in material.node_tree.nodes:
-                                            if node.type == 'TEX_IMAGE' and node.image:
-                                                stored_image = node.image
-                                                break
+                                    nodes = material.node_tree.nodes
+                                    links = material.node_tree.links
 
-                                        # Clear existing nodes
-                                        material.node_tree.nodes.clear()
-                                        if stored_image != None:
-                                            if skip_texture != "":
-                                                if skip_texture in stored_image.filepath:
-                                                    stored_image = None
+                                    nodes.clear()
 
-                                        # Create necessary nodes
-                                        if stored_image is not None:
-                                            uv_map_node = material.node_tree.nodes.new(type='ShaderNodeUVMap')
-                                            img_texture_node = material.node_tree.nodes.new(type='ShaderNodeTexImage')
-                                            mix_color_node = material.node_tree.nodes.new(type=mix_node_type)
-                                            if "MixRGB" not in mix_node_type:
-                                                mix_color_node.data_type = 'RGBA'
-                                            mix_color_node.blend_type = 'MULTIPLY'
-                                            mix_color_node.inputs[0].default_value = 1.0  # Set the factor to 1.0
-                                            img_texture_node.image = stored_image
-                                            if len(obj.data.uv_layers) > 0:
-                                                uv_map_node.uv_map = obj.data.uv_layers[0].name
+                                    # Create nodes: Color Attribute, Principled BSDF, Material Output
+                                    color_attr_node = nodes.new(type='ShaderNodeVertexColor')
+                                    principled_node = nodes.new(type='ShaderNodeBsdfPrincipled')
+                                    material_output_node = nodes.new(type='ShaderNodeOutputMaterial')
 
-                                        color_attr_node = material.node_tree.nodes.new(type='ShaderNodeVertexColor')
-                                        emission_node = material.node_tree.nodes.new(type='ShaderNodeEmission')
-                                        material_output_node = material.node_tree.nodes.new(type='ShaderNodeOutputMaterial')
-                                        add_shader_node = material.node_tree.nodes.new(type='ShaderNodeAddShader')
-                                        transparent_node = material.node_tree.nodes.new(type='ShaderNodeBsdfTransparent')
+                                    # Add correct Vertex Color name
+                                    if useColorAttributes:
+                                        if len(obj.data.color_attributes) > 0:
+                                            color_attr_node.layer_name = obj.data.color_attributes[0].name
+                                    else:
+                                        if len(obj.data.vertex_colors) > 0:
+                                            color_attr_node.layer_name = obj.data.vertex_colors[0].name
 
-                                        # Add correct Vertex Color name
-                                        if useColorAttributes:
-                                            if len(obj.data.color_attributes) > 0:
-                                                color_attr_node.layer_name = obj.data.color_attributes[0].name
-                                        else:
-                                            if len(obj.data.vertex_colors) > 0:
-                                                color_attr_node.layer_name = obj.data.vertex_colors[0].name
+                                    # Set positions for the nodes
+                                    color_attr_node.location = (-400, 0)
+                                    principled_node.location = (-200, 0)
+                                    material_output_node.location = (100, 0)
 
-                                        # Arrange nodes for clarity
-                                        if stored_image is not None:
-                                            uv_map_node.location = (-700, 0)
-                                            img_texture_node.location = (-500, 0)
-                                            mix_color_node.location = (-200, 100)
+                                    # Create links between nodes
+                                    links.new(color_attr_node.outputs[0], principled_node.inputs[0])
+                                    links.new(principled_node.outputs[0], material_output_node.inputs[0])
 
-                                        color_attr_node.location = (-400, 150)
-                                        emission_node.location = (0, 100)
-                                        add_shader_node.location = (200, 100)
-                                        transparent_node.location = (0, -100)
-                                        material_output_node.location = (400, 100)
+                                case "HDRT":
 
-                                        # Link nodes
-                                        links = material.node_tree.links
-                                        if stored_image is not None:
-                                            links.new(uv_map_node.outputs[0], img_texture_node.inputs[0])
-                                            links.new(img_texture_node.outputs[0], mix_color_node.inputs[2])
+                                    if bpy.app.version >= (4, 2, 0):
+                                        material.surface_render_method = 'BLENDED'
+                                    else:
+                                        material.blend_method = 'OPAQUE'
+                                    
+                                    # Store the image of the existing image texture node (if any)
+                                    stored_image = None
+                                    stored_hdr_image = None
 
-                                            if "MixRGB" not in mix_node_type:
-                                                links.new(img_texture_node.outputs[0], mix_color_node.inputs[7])
-                                                links.new(color_attr_node.outputs[0], mix_color_node.inputs[6])
-                                                links.new(mix_color_node.outputs[2], emission_node.inputs[0])
-                                            else:
-                                                links.new(img_texture_node.outputs[0], mix_color_node.inputs[2])
-                                                links.new(color_attr_node.outputs[0], mix_color_node.inputs[1])
-                                                links.new(mix_color_node.outputs[0], emission_node.inputs[0])
-                                        else:
-                                            links.new(color_attr_node.outputs[0], emission_node.inputs[0])
-                                            links.new(emission_node.outputs[0], material_output_node.inputs[0])
-
-                                        # Additive links
-                                        links.new(emission_node.outputs[0], add_shader_node.inputs[0])
-                                        links.new(transparent_node.outputs[0], add_shader_node.inputs[1])
-                                        links.new(add_shader_node.outputs[0], material_output_node.inputs[0])
-
-                                    case "AC":
-
-                                        material.blend_method = "BLEND"
-
-                                        # Clear existing nodes
-                                        material.node_tree.nodes.clear()
-
-                                        # Create necessary nodes
-                                        color_attr_node = material.node_tree.nodes.new(type='ShaderNodeVertexColor')
-                                        emission_node = material.node_tree.nodes.new(type='ShaderNodeEmission')
-                                        material_output_node = material.node_tree.nodes.new(type='ShaderNodeOutputMaterial')
-                                        add_shader_node = material.node_tree.nodes.new(type='ShaderNodeAddShader')
-                                        transparent_node = material.node_tree.nodes.new(type='ShaderNodeBsdfTransparent')
-
-                                        # Add correct Vertex Color name
-                                        if useColorAttributes:
-                                            if len(obj.data.color_attributes) > 0:
-                                                color_attr_node.layer_name = obj.data.color_attributes[0].name
-                                        else:
-                                            if len(obj.data.vertex_colors) > 0:
-                                                color_attr_node.layer_name = obj.data.vertex_colors[0].name
-
-                                        # Arrange nodes for clarity
-                                        color_attr_node.location = (-200, 100)
-                                        emission_node.location = (0, 100)
-                                        add_shader_node.location = (200, 100)
-                                        transparent_node.location = (0, -100)
-                                        material_output_node.location = (400, 100)
-
-                                        # Link nodes
-                                        links = material.node_tree.links
-                                        links.new(color_attr_node.outputs[0], emission_node.inputs[0])
-                                        links.new(emission_node.outputs[0], material_output_node.inputs[0])
-
-                                        # Additive links
-                                        links.new(emission_node.outputs[0], add_shader_node.inputs[0])
-                                        links.new(transparent_node.outputs[0], add_shader_node.inputs[1])
-                                        links.new(add_shader_node.outputs[0], material_output_node.inputs[0])
-
-                                    case "PT":
-
-                                        if bpy.app.version >= (4, 2, 0):
-                                            material.surface_render_method = 'DITHERED'
-                                        else:
-                                            material.blend_method = 'OPAQUE'
-                                        uses_transparency = False
-                                        has_alpha_channel = True
-
-                                        # Store the image of the existing image texture node (if any)
-                                        stored_image = None
-                                        for node in material.node_tree.nodes:
-                                            if node.type == 'TEX_IMAGE' and node.image:
-                                                stored_image = node.image
-
-                                                # Check if the found texture (if any) was being used for transparency previously
-                                                for output in node.outputs:
-                                                    if output.links:
-                                                        for link in output.links:
-                                                            if (link.to_node.type == "BSDF_PRINCIPLED" and link.to_socket.identifier == "Alpha") or (link.to_node.type == "MIX_SHADER" and link.to_socket.identifier == "Fac") or (link.to_node.type == "MATH" and link.to_node.operation == "GREATER_THAN"):
-                                                                uses_transparency = True
-                                                                has_alpha_channel = True if output.identifier == "Alpha" else False
-                                                                break
-                                                break
-
-                                        nodes = material.node_tree.nodes
-                                        links = material.node_tree.links
-
-                                        nodes.clear()
-
-                                        # Create nodes: UV Map, Image Texture, Principled BSDF, Material Output
-                                        if stored_image != None:
-                                            uv_map_node = nodes.new(type='ShaderNodeUVMap')
-                                            img_tex_node = nodes.new(type='ShaderNodeTexImage')
-                                            if len(obj.data.uv_layers) > 0:
-                                                uv_map_node.uv_map = obj.data.uv_layers[0].name
-                                            img_tex_node.image = stored_image
-                                        principled_node = nodes.new(type='ShaderNodeBsdfPrincipled')
-                                        material_output_node = nodes.new(type='ShaderNodeOutputMaterial')
-
-                                        # Set positions for the nodes
-                                        if stored_image != None:
-                                            uv_map_node.location = (-700, 0)
-                                            img_tex_node.location = (-500, 0)
-                                        principled_node.location = (-200, 0)
-                                        material_output_node.location = (100, 0)
-
-                                        # Create links between nodes
-                                        if stored_image != None:
-                                            links.new(uv_map_node.outputs[0], img_tex_node.inputs[0])
-                                            links.new(img_tex_node.outputs[0], principled_node.inputs[0])
-                                        links.new(principled_node.outputs[0], material_output_node.inputs[0])
-
-                                        if uses_transparency:
-                                            # Blender 4.0 moved the # of the Principled BSDF's Alpha input
-                                            links.new(img_tex_node.outputs[1 if has_alpha_channel else 0],principled_node.inputs[principled_alpha_slot])
-
-                                            if bpy.app.version >= (4, 2, 0):
-                                                material.surface_render_method = 'DITHERED'
-                                                greaterthan_node = material.node_tree.nodes.new(type='ShaderNodeMath')
-                                                greaterthan_node.operation = "GREATER_THAN"
-                                                greaterthan_node.location = (-377, -83)
-                                                img_tex_node.location = (-655, 0)
-                                                uv_map_node.location = (-854, 0)
-                                                links.new(img_tex_node.outputs[1], greaterthan_node.inputs[0])
-                                                links.new(greaterthan_node.outputs[0], principled_node.inputs[4])
-                                            else:
-                                                material.blend_method = "CLIP"
-                                                material.alpha_threshold = 0.5
-
-                                    case "PC":
-                                        if bpy.app.version >= (4, 2, 0):
-                                            material.surface_render_method = 'DITHERED'
-                                        else:
-                                            material.blend_method = 'OPAQUE'
-
-                                        # Store the image of the existing image texture node (if any)
-
-                                        nodes = material.node_tree.nodes
-                                        links = material.node_tree.links
-
-                                        nodes.clear()
-
-                                        # Create nodes: Color Attribute, Principled BSDF, Material Output
-                                        color_attr_node = nodes.new(type='ShaderNodeVertexColor')
-                                        principled_node = nodes.new(type='ShaderNodeBsdfPrincipled')
-                                        material_output_node = nodes.new(type='ShaderNodeOutputMaterial')
-
-                                        # Add correct Vertex Color name
-                                        if useColorAttributes:
-                                            if len(obj.data.color_attributes) > 0:
-                                                color_attr_node.layer_name = obj.data.color_attributes[0].name
-                                        else:
-                                            if len(obj.data.vertex_colors) > 0:
-                                                color_attr_node.layer_name = obj.data.vertex_colors[0].name
-
-                                        # Set positions for the nodes
-                                        color_attr_node.location = (-400, 0)
-                                        principled_node.location = (-200, 0)
-                                        material_output_node.location = (100, 0)
-
-                                        # Create links between nodes
-                                        links.new(color_attr_node.outputs[0], principled_node.inputs[0])
-                                        links.new(principled_node.outputs[0], material_output_node.inputs[0])
-
-                                    case "HDRT":
-
-                                        if bpy.app.version >= (4, 2, 0):
-                                            material.surface_render_method = 'BLENDED'
-                                        else:
-                                            material.blend_method = 'OPAQUE'
-                                        
-                                        # Store the image of the existing image texture node (if any)
-                                        stored_image = None
-                                        stored_hdr_image = None
-
-                                        for node in material.node_tree.nodes:
-                                            if node.type == 'TEX_IMAGE' and node.image:
-                                                # An extra check to make sure we're not using the HDR texture as the albedo
-                                                if not ('OPEN_EXR' in node.image.file_format or 'HDR' in node.image.file_format or 'lightmap' in node.image.name_full):
-                                                    if is_node_connected(material, node):
-                                                        stored_image = node.image
-                                                        break
-
-                                        for node in material.node_tree.nodes:
-                                            if node.type == 'TEX_IMAGE' and node.image:
-                                                # Find the HDR texture in the material and store it, if one was already present 
-                                                if 'OPEN_EXR' in node.image.file_format or 'HDR' in node.image.file_format or 'lightmap' in node.image.name_full:
-                                                    stored_hdr_image = node.image
+                                    for node in material.node_tree.nodes:
+                                        if node.type == 'TEX_IMAGE' and node.image:
+                                            # An extra check to make sure we're not using the HDR texture as the albedo
+                                            if not ('OPEN_EXR' in node.image.file_format or 'HDR' in node.image.file_format or 'lightmap' in node.image.name_full):
+                                                if is_node_connected(material, node):
+                                                    stored_image = node.image
                                                     break
 
-                                        # Clear existing nodes and check if the designated "skipped texture" was stored
-                                        material.node_tree.nodes.clear()
-                                        if stored_image != None:
-                                            if skip_texture != "":
-                                                if skip_texture in stored_image.filepath:
-                                                    stored_image = None
+                                    for node in material.node_tree.nodes:
+                                        if node.type == 'TEX_IMAGE' and node.image:
+                                            # Find the HDR texture in the material and store it, if one was already present 
+                                            if 'OPEN_EXR' in node.image.file_format or 'HDR' in node.image.file_format or 'lightmap' in node.image.name_full:
+                                                stored_hdr_image = node.image
+                                                break
 
-                                        # Create necessary nodes
-                                        uv_map_node = None
-                                        uv_hdr_map_node = None
-                                        img_tex_node = None
-                                        mix_color_node = None
-                                        hdr_tex_node = material.node_tree.nodes.new(type='ShaderNodeTexImage')
-                                        uv_hdr_map_node = material.node_tree.nodes.new(type='ShaderNodeUVMap')
-                                        if stored_image != None:
-                                            uv_map_node = material.node_tree.nodes.new(type='ShaderNodeUVMap')
-                                            img_tex_node = material.node_tree.nodes.new(type='ShaderNodeTexImage')
-                                            mix_color_node = material.node_tree.nodes.new(type=mix_node_type)
-                                            if "MixRGB" not in mix_node_type:
-                                                mix_color_node.data_type = 'RGBA'
-                                            mix_color_node.blend_type = 'MULTIPLY'
-                                            if "MIX_RGB" in mix_color_node.type:
-                                                mix_color_node.use_clamp = False
-                                            else:
-                                                mix_color_node.clamp_factor = False
-                                                mix_color_node.clamp_result = False
-                                            mix_color_node.inputs[0].default_value = 1.0  # Set the factor to 1.0
-                                            img_tex_node.image = stored_image
-                                            if len(obj.data.uv_layers) > 0:
-                                                uv_map_node.uv_map = obj.data.uv_layers[0].name
-                                        emission_node = material.node_tree.nodes.new(type='ShaderNodeEmission')
-                                        material_output_node = material.node_tree.nodes.new(type='ShaderNodeOutputMaterial')
+                                    # Clear existing nodes and check if the designated "skipped texture" was stored
+                                    material.node_tree.nodes.clear()
+                                    if stored_image != None:
+                                        if skip_texture != "":
+                                            if skip_texture in stored_image.filepath:
+                                                stored_image = None
 
-                                        # Arrange nodes for clarity
-                                        if stored_image != None:
-                                            img_tex_node.location = (-500, 0)
-                                            mix_color_node.location = (-200, 100)
-                                            uv_map_node.location = (-700, 0)
-                                        hdr_tex_node.location = (-500, 350)
-                                        uv_hdr_map_node.location = (hdr_tex_node.location.x - 200, hdr_tex_node.location.y)
-                                        emission_node.location = (0, 100)
-                                        material_output_node.location = (200, 100)
-
-                                        # Look for an HDR texture already stored in this Blender file, if one wasn't found earlier
-                                        if stored_hdr_image != None:
-                                            hdr_tex_node.image = stored_hdr_image
+                                    # Create necessary nodes
+                                    uv_map_node = None
+                                    uv_hdr_map_node = None
+                                    img_tex_node = None
+                                    mix_color_node = None
+                                    hdr_tex_node = material.node_tree.nodes.new(type='ShaderNodeTexImage')
+                                    uv_hdr_map_node = material.node_tree.nodes.new(type='ShaderNodeUVMap')
+                                    if stored_image != None:
+                                        uv_map_node = material.node_tree.nodes.new(type='ShaderNodeUVMap')
+                                        img_tex_node = material.node_tree.nodes.new(type='ShaderNodeTexImage')
+                                        mix_color_node = material.node_tree.nodes.new(type=mix_node_type)
+                                        if "MixRGB" not in mix_node_type:
+                                            mix_color_node.data_type = 'RGBA'
+                                        mix_color_node.blend_type = 'MULTIPLY'
+                                        if "MIX_RGB" in mix_color_node.type:
+                                            mix_color_node.use_clamp = False
                                         else:
-                                            for searched_img in bpy.data.images:
-                                                if 'OPEN_EXR' in searched_img.file_format or 'HDR' in searched_img.file_format or 'lightmap' in searched_img.name_full:
-                                                    hdr_tex_node.image = searched_img
-                                        hdr_tex_node.label = "HDR Lightmap"
-                                        uv_hdr_map_node.uv_map = "lightmap"
+                                            mix_color_node.clamp_factor = False
+                                            mix_color_node.clamp_result = False
+                                        mix_color_node.inputs[0].default_value = 1.0  # Set the factor to 1.0
+                                        img_tex_node.image = stored_image
+                                        if len(obj.data.uv_layers) > 0:
+                                            uv_map_node.uv_map = obj.data.uv_layers[0].name
+                                    emission_node = material.node_tree.nodes.new(type='ShaderNodeEmission')
+                                    material_output_node = material.node_tree.nodes.new(type='ShaderNodeOutputMaterial')
 
-                                        # Link nodes
-                                        links = material.node_tree.links
+                                    # Arrange nodes for clarity
+                                    if stored_image != None:
+                                        img_tex_node.location = (-500, 0)
+                                        mix_color_node.location = (-200, 100)
+                                        uv_map_node.location = (-700, 0)
+                                    hdr_tex_node.location = (-500, 350)
+                                    uv_hdr_map_node.location = (hdr_tex_node.location.x - 200, hdr_tex_node.location.y)
+                                    emission_node.location = (0, 100)
+                                    material_output_node.location = (200, 100)
 
-                                        print(f"\nStored image is: {stored_image}")
-                                        if stored_image != None:
-                                            if "MixRGB" not in mix_node_type:
-                                                links.new(img_tex_node.outputs[0], mix_color_node.inputs[7])
-                                                links.new(hdr_tex_node.outputs[0], mix_color_node.inputs[6])
-                                                links.new(mix_color_node.outputs[2], emission_node.inputs[0])
-                                            else:
-                                                links.new(img_tex_node.outputs[0], mix_color_node.inputs[2])
-                                                links.new(hdr_tex_node.outputs[0], mix_color_node.inputs[1])
-                                                links.new(mix_color_node.outputs[0], emission_node.inputs[0])
-                                            links.new(emission_node.outputs[0], material_output_node.inputs[0])
-                                            links.new(uv_map_node.outputs[0], img_tex_node.inputs[0])
+                                    # Look for an HDR texture already stored in this Blender file, if one wasn't found earlier
+                                    if stored_hdr_image != None:
+                                        hdr_tex_node.image = stored_hdr_image
+                                    else:
+                                        for searched_img in bpy.data.images:
+                                            if 'OPEN_EXR' in searched_img.file_format or 'HDR' in searched_img.file_format or 'lightmap' in searched_img.name_full:
+                                                hdr_tex_node.image = searched_img
+                                    hdr_tex_node.label = "HDR Lightmap"
+                                    uv_hdr_map_node.uv_map = "lightmap"
+
+                                    # Link nodes
+                                    links = material.node_tree.links
+
+                                    print(f"\nStored image is: {stored_image}")
+                                    if stored_image != None:
+                                        if "MixRGB" not in mix_node_type:
+                                            links.new(img_tex_node.outputs[0], mix_color_node.inputs[7])
+                                            links.new(hdr_tex_node.outputs[0], mix_color_node.inputs[6])
+                                            links.new(mix_color_node.outputs[2], emission_node.inputs[0])
                                         else:
-                                            links.new(hdr_tex_node.outputs[0], emission_node.inputs[0])
-                                            links.new(emission_node.outputs[0], material_output_node.inputs[0])
-                                        links.new(uv_hdr_map_node.outputs[0], hdr_tex_node.inputs[0])
+                                            links.new(img_tex_node.outputs[0], mix_color_node.inputs[2])
+                                            links.new(hdr_tex_node.outputs[0], mix_color_node.inputs[1])
+                                            links.new(mix_color_node.outputs[0], emission_node.inputs[0])
+                                        links.new(emission_node.outputs[0], material_output_node.inputs[0])
+                                        links.new(uv_map_node.outputs[0], img_tex_node.inputs[0])
+                                    else:
+                                        links.new(hdr_tex_node.outputs[0], emission_node.inputs[0])
+                                        links.new(emission_node.outputs[0], material_output_node.inputs[0])
+                                    links.new(uv_hdr_map_node.outputs[0], hdr_tex_node.inputs[0])
 
-                                    case "PP":
-                                        node_tree = material.node_tree
+                                case "PP":
+                                    node_tree = material.node_tree
 
-                                        uv_map_nodes = [node for node in node_tree.nodes if node.type == 'UVMAP']
+                                    uv_map_nodes = [node for node in node_tree.nodes if node.type == 'UVMAP']
 
-                                        for uv_map_node in uv_map_nodes:
-                                            connections = [link.to_socket for link in uv_map_node.outputs[0].links]
+                                    for uv_map_node in uv_map_nodes:
+                                        connections = [link.to_socket for link in uv_map_node.outputs[0].links]
 
-                                            # Create a Separate XYZ node
-                                            separate_xyz_node = node_tree.nodes.new(type='ShaderNodeSeparateXYZ')
-                                            separate_xyz_node.label = "Ping Pong Separate"
-                                            separate_xyz_node.location = uv_map_node.location.x, uv_map_node.location.y + 200
-                                            node_tree.links.new(uv_map_node.outputs[0], separate_xyz_node.inputs[0])
+                                        # Create a Separate XYZ node
+                                        separate_xyz_node = node_tree.nodes.new(type='ShaderNodeSeparateXYZ')
+                                        separate_xyz_node.label = "Ping Pong Separate"
+                                        separate_xyz_node.location = uv_map_node.location.x, uv_map_node.location.y + 200
+                                        node_tree.links.new(uv_map_node.outputs[0], separate_xyz_node.inputs[0])
 
-                                            # Create the first Math node
-                                            math_node_1 = node_tree.nodes.new(type='ShaderNodeMath')
-                                            math_node_1.operation = 'PINGPONG'
-                                            math_node_1.label = "Ping Pong X"
-                                            math_node_1.inputs[1].default_value = 1.0
-                                            math_node_1.location = separate_xyz_node.location.x + 200, separate_xyz_node.location.y
-                                            node_tree.links.new(separate_xyz_node.outputs[0], math_node_1.inputs[0])
+                                        # Create the first Math node
+                                        math_node_1 = node_tree.nodes.new(type='ShaderNodeMath')
+                                        math_node_1.operation = 'PINGPONG'
+                                        math_node_1.label = "Ping Pong X"
+                                        math_node_1.inputs[1].default_value = 1.0
+                                        math_node_1.location = separate_xyz_node.location.x + 200, separate_xyz_node.location.y
+                                        node_tree.links.new(separate_xyz_node.outputs[0], math_node_1.inputs[0])
 
-                                            # Create the second Math node
-                                            math_node_2 = node_tree.nodes.new(type='ShaderNodeMath')
-                                            math_node_2.operation = 'PINGPONG'
-                                            math_node_2.label = "Ping Pong Y"
-                                            math_node_2.inputs[1].default_value = 1.0
-                                            math_node_2.location = separate_xyz_node.location.x + 200, separate_xyz_node.location.y - 100
-                                            node_tree.links.new(separate_xyz_node.outputs[1], math_node_2.inputs[0])
+                                        # Create the second Math node
+                                        math_node_2 = node_tree.nodes.new(type='ShaderNodeMath')
+                                        math_node_2.operation = 'PINGPONG'
+                                        math_node_2.label = "Ping Pong Y"
+                                        math_node_2.inputs[1].default_value = 1.0
+                                        math_node_2.location = separate_xyz_node.location.x + 200, separate_xyz_node.location.y - 100
+                                        node_tree.links.new(separate_xyz_node.outputs[1], math_node_2.inputs[0])
 
-                                            # Create the Combine XYZ node
-                                            combine_xyz_node = node_tree.nodes.new(type='ShaderNodeCombineXYZ')
-                                            combine_xyz_node.location = math_node_1.location.x + 200, (math_node_1.location.y + math_node_2.location.y) / 2
-                                            combine_xyz_node.label = "Ping Pong Combine"
-                                            combine_xyz_node.inputs[2].default_value = 0.0
-                                            node_tree.links.new(math_node_1.outputs['Value'], combine_xyz_node.inputs[0])
-                                            node_tree.links.new(math_node_2.outputs['Value'], combine_xyz_node.inputs[1])
+                                        # Create the Combine XYZ node
+                                        combine_xyz_node = node_tree.nodes.new(type='ShaderNodeCombineXYZ')
+                                        combine_xyz_node.location = math_node_1.location.x + 200, (math_node_1.location.y + math_node_2.location.y) / 2
+                                        combine_xyz_node.label = "Ping Pong Combine"
+                                        combine_xyz_node.inputs[2].default_value = 0.0
+                                        node_tree.links.new(math_node_1.outputs['Value'], combine_xyz_node.inputs[0])
+                                        node_tree.links.new(math_node_2.outputs['Value'], combine_xyz_node.inputs[1])
 
-                                            # Reconnect the original connections to the Combine XYZ node
-                                            for socket in connections:
-                                                node_tree.links.new(combine_xyz_node.outputs['Vector'], socket)
+                                        # Reconnect the original connections to the Combine XYZ node
+                                        for socket in connections:
+                                            node_tree.links.new(combine_xyz_node.outputs['Vector'], socket)
 
-                                    case "NO_PP":
-                                        node_tree = material.node_tree
+                                case "NO_PP":
+                                    node_tree = material.node_tree
 
-                                        pp_separate_nodes = [node for node in node_tree.nodes if node.label == 'Ping Pong Separate']
+                                    pp_separate_nodes = [node for node in node_tree.nodes if node.label == 'Ping Pong Separate']
 
-                                        for pp_separate_node in pp_separate_nodes:
-                                            in_node = pp_separate_node.inputs[0].links[0].from_node
-                                            pp_x_node = pp_separate_node.outputs[0].links[0].to_node
-                                            pp_y_node = pp_separate_node.outputs[1].links[0].to_node
-                                            pp_combine_node = pp_x_node.outputs[0].links[0].to_node
-                                            out_nodes = [link.to_node for link in pp_combine_node.outputs[0].links]
+                                    for pp_separate_node in pp_separate_nodes:
+                                        in_node = pp_separate_node.inputs[0].links[0].from_node
+                                        pp_x_node = pp_separate_node.outputs[0].links[0].to_node
+                                        pp_y_node = pp_separate_node.outputs[1].links[0].to_node
+                                        pp_combine_node = pp_x_node.outputs[0].links[0].to_node
+                                        out_nodes = [link.to_node for link in pp_combine_node.outputs[0].links]
 
-                                            # Reconnect the original connections to the Combine XYZ node
-                                            for out_node in out_nodes:
-                                                node_tree.links.new(in_node.outputs[0], out_node.inputs[0])
+                                        # Reconnect the original connections to the Combine XYZ node
+                                        for out_node in out_nodes:
+                                            node_tree.links.new(in_node.outputs[0], out_node.inputs[0])
 
-                                            # Remove Ping Pong nodes
-                                            node_tree.nodes.remove(pp_x_node)
-                                            node_tree.nodes.remove(pp_y_node)
-                                            node_tree.nodes.remove(pp_combine_node)
-                                            node_tree.nodes.remove(pp_separate_node)
+                                        # Remove Ping Pong nodes
+                                        node_tree.nodes.remove(pp_x_node)
+                                        node_tree.nodes.remove(pp_y_node)
+                                        node_tree.nodes.remove(pp_combine_node)
+                                        node_tree.nodes.remove(pp_separate_node)
 
-                                num_processed += 1
+                            num_processed += 1
                     obj.data.update()
 
         if num_processed != 0:
@@ -1956,49 +1958,71 @@ class IsolateByMatTrait(bpy.types.Operator):
 
                     for mat in list_of_mats:
 
-                        if mat != '':
+                        material = bpy.data.materials[mat]
+                        material.use_nodes = True
+                        is_transparent = False
+                        is_emissive = False
+                        is_animated = False
 
-                            material = bpy.data.materials[mat]
-                            material.use_nodes = True
+                        if material and material.use_nodes:
+                            for node in material.node_tree.nodes:
+                                if is_node_connected(material, node):
 
-                            if material and material.use_nodes:
-                                for node in material.node_tree.nodes:
-                                    if is_node_connected(material, node):
-
-                                        if trait == "transparent":
-                                            
-                                            # Transparency scenario 1 - Principled BSDF with alpha input
-                                            if node.type == "BSDF_PRINCIPLED":
-                                                if len(node.inputs[principled_alpha_slot].links) > 0 or node.inputs[principled_alpha_slot].default_value != 1:
-                                                    matching_materials.add(material.name)
-                                                    continue
-
-                                            # Transparency scenario 2 - Transparent BSDF
-                                            elif node.type == "BSDF_TRANSPARENT":
-                                                    matching_materials.add(material.name)
-                                                    continue
-                                            
-                                        if trait == "emissive":
-                                            is_emissive = False
-
-                                            # Emissive scenario 1 - Principled BSDF with emissive input
-                                            if node.type == "BSDF_PRINCIPLED":
-                                                em_color_slot = node.inputs[principled_emissive_color_slot]
-                                                em_strength_slot = node.inputs[principled_emissive_strength_slot]
-                                                if em_strength_slot.default_value != 0.0 or len(em_strength_slot.links) > 0:
-                                                    if len(em_color_slot.links) > 0:
-                                                        is_emissive = True
-                                                    elif list(em_color_slot.default_value) != [0.0,0.0,0.0,1.0] and list(em_color_slot.default_value) != [0.0,0.0,0.0,0.0]:
-                                                        is_emissive = True
-
-                                            # Emissive scenario 2 - Emission shader
-                                            elif node.type == "EMISSION":
-                                                is_emissive = True
-
-                                            if is_emissive:
+                                    if trait == "transparent":
+                                        
+                                        # Transparency scenario 1 - Principled BSDF with alpha input
+                                        if node.type == "BSDF_PRINCIPLED":
+                                            if len(node.inputs[principled_alpha_slot].links) > 0 or node.inputs[principled_alpha_slot].default_value != 1:
                                                 matching_materials.add(material.name)
-                                                continue
-                    
+                                                break
+
+                                        # Transparency scenario 2 - Transparent BSDF
+                                        elif node.type == "BSDF_TRANSPARENT":
+                                            matching_materials.add(material.name)
+                                            break
+                                        
+                                    if trait == "emissive":
+
+                                        # Emissive scenario 1 - Principled BSDF with emissive input
+                                        if node.type == "BSDF_PRINCIPLED":
+                                            em_color_slot = node.inputs[principled_emissive_color_slot]
+                                            em_strength_slot = node.inputs[principled_emissive_strength_slot]
+                                            if em_strength_slot.default_value != 0.0 or len(em_strength_slot.links) > 0:
+                                                if len(em_color_slot.links) > 0:
+                                                    is_emissive = True
+                                                    break
+                                                elif list(em_color_slot.default_value) != [0.0,0.0,0.0,1.0] and list(em_color_slot.default_value) != [0.0,0.0,0.0,0.0]:
+                                                    is_emissive = True
+                                                    break
+
+                                        # Emissive scenario 2 - Emission shader
+                                        elif node.type == "EMISSION":
+                                            is_emissive = True
+                                            break
+                
+                                        
+                                    if trait == "animated":
+                                        is_animated = False
+
+                                        # Animated scenario 1 - Animation data exists and isn't "none"
+                                        if material.node_tree.animation_data != None:
+                                            print(f"Material {material.name} DOES contain animation data")
+                                            print(material.node_tree.animation_data)
+                                            is_animated = True
+                                            break
+
+                                        # Animated scenario 2 - Image Sequence node
+                                        elif node.type == "TEX_IMAGE":
+                                            if node.image.source == 'SEQUENCE':
+                                                is_animated = True
+                                                break
+                                            
+                        if is_transparent and trait == "transparent":
+                            matching_materials.add(material.name)
+                        if is_emissive and trait == "emissive":
+                            matching_materials.add(material.name)
+                        if is_animated and trait == "animated":
+                            matching_materials.add(material.name)
 
         materials_matched_count = 0
         if len(matching_materials) > 0:
@@ -2057,6 +2081,43 @@ class IsolateByMatTrait(bpy.types.Operator):
         display_msg_box(
             f'Isolated {materials_matched_count} {trait} material(s) into {len(separated_objs)} separate object(s).', 'Info', 'INFO')
         return {'FINISHED'}
+
+# Update Backface Culling operator 
+
+class UpdateBackfaceCulling(bpy.types.Operator):
+    """Updates the backface culling settings in all materials in all selected objects, based on the settings above"""
+    bl_idname = "material.update_backface_culling"
+    bl_label = "Update Backface Culling"
+    bl_options = {'REGISTER'}
+
+    def execute(self, context):
+
+        num_processed = 0
+        list_of_mats = check_for_selected()
+
+        # Check if any objects are selected.
+        if list_of_mats != False:
+
+            backface_culling_camera = bpy.context.scene.MatBatchProperties.BackfaceCamera
+            backface_culling_shadow = bpy.context.scene.MatBatchProperties.BackfaceShadow
+            backface_culling_lightprobe = bpy.context.scene.MatBatchProperties.BackfaceLightProbe
+
+            for mat in list_of_mats:
+                material = bpy.data.materials[mat]
+                material.use_backface_culling = backface_culling_camera
+
+                if bpy.app.version >= (4, 1, 0):
+                    material.use_backface_culling_shadow = backface_culling_shadow
+                if bpy.app.version >= (4, 2, 0):
+                    material.use_backface_culling_lightprobe_volume = backface_culling_lightprobe
+
+                num_processed += 1
+
+        display_msg_box(
+            f'Updated backface culling settings in {num_processed} material(s).', 'Info', 'INFO')
+
+        return {'FINISHED'}
+
 
 
 # End classes
@@ -2182,7 +2243,7 @@ class MaterialBatchToolsSubPanel_Nodes(bpy.types.Panel):
 
 class MaterialBatchToolsSubPanel_Transparency(bpy.types.Panel):
     bl_parent_id = "MATERIAL_PT_matbatchtools"
-    bl_label = 'Transparency'
+    bl_label = 'Transparency & Backface Culling'
     bl_idname = "MATERIAL_PT_matbatchtools_transparency"
     bl_space_type = 'PROPERTIES'
     bl_region_type = 'WINDOW'
@@ -2201,6 +2262,7 @@ class MaterialBatchToolsSubPanel_Transparency(bpy.types.Panel):
 
         # Transparency UI
         boxTransparency = layout.box()
+        boxTransparency.label(text="Transparency")
         rowTransparency1 = boxTransparency.row()
         rowTransparency2 = boxTransparency.row()
         rowTransparency3 = boxTransparency.row()
@@ -2219,6 +2281,23 @@ class MaterialBatchToolsSubPanel_Transparency(bpy.types.Panel):
         rowTransparency4.enabled = (
             bpy.context.scene.MatBatchProperties.AlphaBlendMode == "OPAQUE")
         rowTransparency5.operator("material.set_blend_mode")
+
+        # Backface Culling UI
+        boxBackfaceCulling = layout.box()
+        boxBackfaceCulling.label(text="Backface Culling")
+        rowBackfaceCulling1 = boxBackfaceCulling.row()
+        rowBackfaceCulling2 = boxBackfaceCulling.row()
+        rowBackfaceCulling3 = boxBackfaceCulling.row()
+        rowBackfaceCulling4 = boxBackfaceCulling.row()
+        rowBackfaceCulling1.prop(
+            bpy.context.scene.MatBatchProperties, "BackfaceCamera")
+        rowBackfaceCulling2.prop(bpy.context.scene.MatBatchProperties,
+                              "BackfaceShadow")
+        rowBackfaceCulling3.prop(bpy.context.scene.MatBatchProperties,
+                              "BackfaceLightProbe")
+        rowBackfaceCulling2.enabled = bpy.app.version >= (4, 2, 0)
+        rowBackfaceCulling3.enabled = bpy.app.version >= (4, 2, 0)
+        rowBackfaceCulling4.operator("material.update_backface_culling")
 
 class MaterialBatchToolsSubPanel_UV_VC(bpy.types.Panel):
     bl_parent_id = "MATERIAL_PT_matbatchtools"
@@ -2330,6 +2409,7 @@ classes = (
     PasteActiveFaceTexture,
     CopyTexToMatName,
     IsolateByMatTrait,
+    UpdateBackfaceCulling,
     MaterialBatchToolsPanel,
     MaterialBatchToolsSubPanel_Nodes,
     MaterialBatchToolsSubPanel_UV_VC,
