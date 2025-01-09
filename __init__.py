@@ -1852,7 +1852,7 @@ class PasteActiveFaceTexture(bpy.types.Operator):
 
 
 class CopyTexToMatName(bpy.types.Operator):
-    """Finds the diffuse texture in all materials, in all selected objects, and renames the material to the diffuse's texture name (minus the file extension). If the material contains multiple diffuse textures, all of them will be appended to the material"""
+    """Finds the diffuse texture in all materials, in all selected objects, and renames the material to the diffuse's texture name (minus the file extension). If the material contains multiple diffuse textures, all of them will be appended to the material name"""
     bl_idname = "material.copy_tex_to_mat_name"
     bl_label = "Copy Diffuse Texture to Material Name"
     bl_options = {'REGISTER'}
