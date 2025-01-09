@@ -1,7 +1,7 @@
 schema_version = "1.0.0"
 
 id = "matbatchtools"
-version = "1.5.1"
+version = "2.0.2"
 name = "Material Batch Tools"
 tagline = "Quick batch automation of common material tasks"
 maintainer = "Theanine3D <theanine3d@gmail.com>"
