@@ -5,7 +5,7 @@ bl_info = {
     "name": "Material Batch Tools",
     "description": "Batch tools for quickly modifying, copying, and pasting nodes on all materials in selected objects",
     "author": "Theanine3D",
-    "version": (2, 0, 1),
+    "version": (2, 0, 2),
     "blender": (3, 0, 0),
     "category": "Material",
     "location": "Properties -> Material Properties",
@@ -1852,7 +1852,7 @@ class PasteActiveFaceTexture(bpy.types.Operator):
 
 
 class CopyTexToMatName(bpy.types.Operator):
-    """Finds the diffuse texture in all materials, in all selected objects, and renames the material to the diffuse's texture name (minus the file extension)"""
+    """Finds the diffuse texture in all materials, in all selected objects, and renames the material to the diffuse's texture name (minus the file extension). If the material contains multiple diffuse textures, all of them will be appended to the material"""
     bl_idname = "material.copy_tex_to_mat_name"
     bl_label = "Copy Diffuse Texture to Material Name"
     bl_options = {'REGISTER'}
@@ -1862,6 +1862,7 @@ class CopyTexToMatName(bpy.types.Operator):
         num_processed = 0
 
         list_of_mats = check_for_selected()
+        mats_to_rename = dict()
 
         # Check if any objects are selected.
         if list_of_mats != False:
@@ -1872,16 +1873,17 @@ class CopyTexToMatName(bpy.types.Operator):
 
                     # For each material
                     for mat in list_of_mats:
+                        diffuse_textures_found = set()
 
                         if mat in bpy.data.materials.keys():
                             node_tree = bpy.data.materials[mat].node_tree
 
                             # Find the diffuse image texture node
-                            diffuse = None
                             if node_tree != None:
                                 for node in node_tree.nodes:
 
-                                    if node.type == "TEX_IMAGE":
+                                    if node.type == "TEX_IMAGE" and is_node_connected(bpy.data.materials[mat], node):
+
                                         # Check if a file is actually loaded in this image texture node
                                         if node.image:
 
@@ -1890,41 +1892,56 @@ class CopyTexToMatName(bpy.types.Operator):
                                                 for link in node.outputs[0].links:
 
                                                     # Check if Image Texture is connected to a "color" socket," or a Mix node's A and B sockets
-                                                    if "Color" in link.to_socket.name or "A" in link.to_socket.name or "B" in link.to_socket.name:
-                                                        diffuse = node
-                                                        break
+                                                    if "Color" in link.to_socket.name or "A" in link.to_socket.name or "B" in link.to_socket.name or link.to_socket.type == 'RGBA':
+                                                        # Get the texture name, but without the file extension
+                                                        diffuse_name = node.image.name.split(".", 1)[0]
+                                                        diffuse_textures_found.add(diffuse_name)
+                                                        continue
                                         else:
                                             continue
 
-                                    # Check if diffuse was found already, and if so, break out of the loop
-                                    if diffuse != None:
+                        if len(diffuse_textures_found) != None:
+                            mats_to_rename[mat] = diffuse_textures_found
 
-                                        break
-                            else:
-                                display_msg_box(
-                                    'No nodes exist in the active material of this object.', 'Error', 'ERROR')
-                                continue
+                if len(mats_to_rename.keys()) != 0:
 
-                            # If diffuse was found:
-                            if diffuse != None:
-                                
-                                    # Get the texture name, but without the file extension
-                                    diffuse_name = diffuse.image.name.split(".", 1)[0]
+                    # If diffuse was found:
+                    for mat in mats_to_rename.keys():
+                        finalized_name = ""
 
-                                    # Check if a material with that name already exists
-                                    if diffuse_name in bpy.data.materials:
-                                        if mat in obj.material_slots.keys():
-                                            old_index = obj.material_slots[mat].slot_index
-                                            obj.material_slots[old_index].material = bpy.data.materials[diffuse_name]
+                        # Change the current material's name
+                        for texture in mats_to_rename[mat]:
+                            if finalized_name != "":
+                                finalized_name = finalized_name + " "
+                            finalized_name = finalized_name + texture
 
-                                    # If material doesn't exist yet, change the current material's name
-                                    else:
-                                        if mat in bpy.data.materials.keys():
-                                            bpy.data.materials[mat].name = diffuse_name
-                                            num_processed += 1
+                        # Check if a material with that name already exists
+                        if finalized_name in bpy.data.materials.keys():
+                            if mat in obj.material_slots.keys():
 
-        display_msg_box(
-            f'Renamed {num_processed} material(s).', 'Info', 'INFO')
+                                # Compare the node count for the materials - make sure they have the same amount of nodes, to avoid mismatching any unique but very similar materials
+                                if len(bpy.data.materials[mat].node_tree.nodes) != len(bpy.data.materials[finalized_name].node_tree.nodes):
+                                    finalized_name += " " + str(len(bpy.data.materials[mat].node_tree.nodes))
+
+                        if finalized_name in bpy.data.materials.keys():
+                            if mat in obj.material_slots.keys():
+                                old_index = obj.material_slots[mat].slot_index
+                                if obj.material_slots[old_index].material.name != finalized_name:
+                                    obj.material_slots[old_index].material = bpy.data.materials[finalized_name]
+                                    num_processed += 1
+
+                        else:
+                            if mat in bpy.data.materials.keys():
+                                bpy.data.materials[mat].name = finalized_name
+                                if mat in list_of_mats:
+                                    list_of_mats.remove(mat)
+                                num_processed += 1
+
+                    display_msg_box(
+                        f'Renamed {num_processed} material(s).', 'Info', 'INFO')
+                else:
+                    display_msg_box(
+                        'No diffuse textures found.', 'Error', 'ERROR')
 
         return {'FINISHED'}
 
