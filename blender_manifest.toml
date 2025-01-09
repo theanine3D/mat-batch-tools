@@ -8,7 +8,7 @@ maintainer = "Theanine3D <theanine3d@gmail.com>"
 
 type = "add-on"
 
-website = "https://github.com/theanine3D/mat-batch-tools"
+website = "https://github.com/theanine3D/mat_batch_tools"
 
 tags = ["Material", "Node"]
 
