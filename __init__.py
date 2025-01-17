@@ -1,11 +1,12 @@
 import mathutils
 import bpy
+import hashlib
 
 bl_info = {
     "name": "Material Batch Tools",
     "description": "Batch tools for quickly modifying, copying, and pasting nodes on all materials in selected objects",
     "author": "Theanine3D",
-    "version": (2, 0, 3),
+    "version": (2, 1, 0),
     "blender": (3, 0, 0),
     "category": "Material",
     "location": "Properties -> Material Properties",
@@ -653,7 +654,7 @@ class AssignVCToNodes(bpy.types.Operator):
 
 
 class RenameVertexColorSlot(bpy.types.Operator):
-    """Renames the first Vertex Color slot in all selected objects, using the name specified above"""
+    """Rename the first Vertex Color slot in all selected objects, using the name specified above"""
     bl_idname = "object.rename_vertex_color"
     bl_label = "Rename Vertex Color Slot 1"
     bl_options = {'REGISTER'}
@@ -1992,12 +1993,12 @@ class IsolateByMatTrait(bpy.types.Operator):
                                         # Transparency scenario 1 - Principled BSDF with alpha input
                                         if node.type == "BSDF_PRINCIPLED":
                                             if len(node.inputs[principled_alpha_slot].links) > 0 or node.inputs[principled_alpha_slot].default_value != 1:
-                                                matching_materials.add(material.name)
+                                                is_transparent = True
                                                 break
 
                                         # Transparency scenario 2 - Transparent BSDF
                                         elif node.type == "BSDF_TRANSPARENT":
-                                            matching_materials.add(material.name)
+                                            is_transparent = True
                                             break
                                         
                                     if trait == "emissive":
@@ -2021,12 +2022,9 @@ class IsolateByMatTrait(bpy.types.Operator):
                 
                                         
                                     if trait == "animated":
-                                        is_animated = False
 
                                         # Animated scenario 1 - Animation data exists and isn't "none"
                                         if material.node_tree.animation_data != None:
-                                            print(f"Material {material.name} DOES contain animation data")
-                                            print(material.node_tree.animation_data)
                                             is_animated = True
                                             break
 
@@ -2139,6 +2137,40 @@ class UpdateBackfaceCulling(bpy.types.Operator):
 
 
 
+
+# Rename All Textures by Hash
+
+
+class RenameTexturesByHash(bpy.types.Operator):
+    """Rename ALL textures in this Blender file by generating a unique MD5-generated hash for each texture"""
+    bl_idname = "material.rename_textures_by_hash"
+    bl_label = "Rename All Textures by Hash"
+    bl_options = {'REGISTER'}
+
+    def execute(self, context):
+
+        num_processed = 0
+
+        def generate_hash_from_image(image):
+            pixels = list(image.pixels)  # Get image pixels as a flat list
+            pixel_data = ''.join([str(int(p * 255)) for p in pixels])  # Convert to string
+            hash_object = hashlib.md5(pixel_data.encode())  # Generate MD5 hash
+            return hash_object.hexdigest()  # Return hexadecimal MD5 hash string
+
+        for image in bpy.data.images:
+            hash_name = generate_hash_from_image(image)
+            image.name = hash_name[:32]  # Use first 32 characters of hash as the new name
+            num_processed += 1
+
+        if len(bpy.data.images) > 0: 
+            display_msg_box(
+                f'Renamed {num_processed} texture(s).', 'Info', 'INFO')
+        else:
+            display_msg_box(
+                'No textures found.', 'Error', 'ERROR')
+
+        return {'FINISHED'}
+
 # End classes
 
 
@@ -2158,12 +2190,14 @@ def menu_func(self, context):
     self.layout.operator(FindActiveFaceTexture.bl_idname)
     self.layout.operator(CopyTexToMatName.bl_idname)
     self.layout.operator(IsolateByMatTrait.bl_idname)
+    self.layout.operator(RenameTexturesByHash.bl_idname)
 
 
 def imageeditor_menu_func(self, context):
     self.layout.operator(FindActiveFaceTexture.bl_idname)
     self.layout.operator(CopyActiveFaceTexture.bl_idname)
     self.layout.operator(PasteActiveFaceTexture.bl_idname)
+    self.layout.operator(RenameTexturesByHash.bl_idname)
     self.layout.operator(CopyTexToMatName.bl_idname)
     
 # MATERIALS PANEL
@@ -2429,6 +2463,7 @@ classes = (
     CopyTexToMatName,
     IsolateByMatTrait,
     UpdateBackfaceCulling,
+    RenameTexturesByHash,
     MaterialBatchToolsPanel,
     MaterialBatchToolsSubPanel_Nodes,
     MaterialBatchToolsSubPanel_UV_VC,
