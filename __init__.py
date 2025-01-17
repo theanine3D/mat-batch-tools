@@ -5,7 +5,7 @@ bl_info = {
     "name": "Material Batch Tools",
     "description": "Batch tools for quickly modifying, copying, and pasting nodes on all materials in selected objects",
     "author": "Theanine3D",
-    "version": (2, 0, 2),
+    "version": (2, 0, 3),
     "blender": (3, 0, 0),
     "category": "Material",
     "location": "Properties -> Material Properties",
@@ -221,8 +221,6 @@ def check_for_selected(objectOnly=False):
                     "There are no valid materials in the selected objects", "Error", "ERROR")
                 return False
     else:
-        display_msg_box(
-            "At least one mesh object must be selected", "Error", "ERROR")
         return False
 
 def is_node_connected(material, node_to_check):
@@ -760,6 +758,7 @@ class SetBlendMode(bpy.types.Operator):
         filter_mode = bpy.context.scene.MatBatchProperties.AlphaBlendFilter
         alpha_threshold = bpy.context.scene.MatBatchProperties.AlphaThreshold
         principled_alpha_slot = 21 if bpy.app.version < (4, 0, 0) else 4
+        num_processed = 0
 
         if alpha_mode == "BLEND":
             shadow_mode = "CLIP"
@@ -795,25 +794,29 @@ class SetBlendMode(bpy.types.Operator):
                                 if node.type == "BSDF_PRINCIPLED":
                                     if len(node.inputs[principled_alpha_slot].links) > 0:
                                         update_alpha_settings(mat, alpha_mode, shadow_mode, alpha_threshold)
+                                        num_processed += 1
                                         break
                                     else:
                                         if node.inputs[principled_alpha_slot].default_value < 1.0:
                                             update_alpha_settings(mat, alpha_mode, shadow_mode, alpha_threshold)
+                                            num_processed += 1
                                             break
 
                         # Filter 2 - Transparent BSDF
                         elif filter_mode == "TRANSPARENTNODE":
                             for node in bpy.data.materials[mat].node_tree.nodes:
                                     update_alpha_settings(mat, alpha_mode, shadow_mode, alpha_threshold)
+                                    num_processed += 1
                                     break
 
                         else:
                             update_alpha_settings(mat, alpha_mode, shadow_mode, alpha_threshold)
+                            num_processed += 1
                             continue
                     obj.data.update()
 
         display_msg_box(
-            f'Updated alpha settings for {len(list_of_mats)} material(s).', 'Info', 'INFO')
+            f'Updated alpha settings for {str(num_processed)} material(s).', 'Info', 'INFO')
         return {'FINISHED'}
 
 
@@ -1671,9 +1674,8 @@ class ApplyMatTemplate(bpy.types.Operator):
                             num_processed += 1
                     obj.data.update()
 
-        if num_processed != 0:
-            display_msg_box(
-                f'Applied template to {num_processed} material(s).', 'Info', 'INFO')
+        display_msg_box(
+            f'Applied template to {num_processed} material(s).', 'Info', 'INFO')
 
         return {'FINISHED'}
 
