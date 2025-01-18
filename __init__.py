@@ -6,7 +6,7 @@ bl_info = {
     "name": "Material Batch Tools",
     "description": "Batch tools for quickly modifying, copying, and pasting nodes on all materials in selected objects",
     "author": "Theanine3D",
-    "version": (2, 1, 0),
+    "version": (2, 1, 1),
     "blender": (3, 0, 0),
     "category": "Material",
     "location": "Properties -> Material Properties",
@@ -2136,10 +2136,7 @@ class UpdateBackfaceCulling(bpy.types.Operator):
         return {'FINISHED'}
 
 
-
-
 # Rename All Textures by Hash
-
 
 class RenameTexturesByHash(bpy.types.Operator):
     """Rename ALL textures in this Blender file by generating a unique MD5-generated hash for each texture"""
@@ -2150,6 +2147,9 @@ class RenameTexturesByHash(bpy.types.Operator):
     def execute(self, context):
 
         num_processed = 0
+        num_dupes_removed = 0
+        duplicates_to_remove = set()
+        original_images = set()
 
         def generate_hash_from_image(image):
             pixels = list(image.pixels)  # Get image pixels as a flat list
@@ -2158,13 +2158,30 @@ class RenameTexturesByHash(bpy.types.Operator):
             return hash_object.hexdigest()  # Return hexadecimal MD5 hash string
 
         for image in bpy.data.images:
+            original_images.add(image)
+
+        for image in original_images:
             hash_name = generate_hash_from_image(image)
-            image.name = hash_name[:32]  # Use first 32 characters of hash as the new name
-            num_processed += 1
+            if hash_name[:32] not in bpy.data.images.keys():
+                image.name = hash_name[:32]  # Use first 32 characters of hash as the new name
+                num_processed += 1
+            else:
+                duplicates_to_remove.add(image.name)
+
+        for material in bpy.data.materials:
+            for node in material.node_tree.nodes:
+                if node.type == 'TEX_IMAGE' and node.image.name.split(".")[0] in duplicates_to_remove:
+                    node.image = bpy.data.images[node.image.name.split(".")[0]]
+
+        # Remove any duplicate images
+        for image in bpy.data.images:
+            if "." in image.name:
+                bpy.data.images.remove(image)
+                num_dupes_removed += 1
 
         if len(bpy.data.images) > 0: 
             display_msg_box(
-                f'Renamed {num_processed} texture(s).', 'Info', 'INFO')
+                f'Renamed {num_processed} texture(s).\nRemoved {str(num_dupes_removed)} duplicate texture(s).', 'Info', 'INFO')
         else:
             display_msg_box(
                 'No textures found.', 'Error', 'ERROR')
