@@ -6,7 +6,7 @@ bl_info = {
     "name": "Material Batch Tools",
     "description": "Batch tools for quickly modifying, copying, and pasting nodes on all materials in selected objects",
     "author": "Theanine3D",
-    "version": (2, 1, 1),
+    "version": (2, 1, 2),
     "blender": (3, 0, 0),
     "category": "Material",
     "location": "Properties -> Material Properties",
@@ -2161,17 +2161,19 @@ class RenameTexturesByHash(bpy.types.Operator):
             original_images.add(image)
 
         for image in original_images:
-            hash_name = generate_hash_from_image(image)
-            if hash_name[:32] not in bpy.data.images.keys():
-                image.name = hash_name[:32]  # Use first 32 characters of hash as the new name
-                num_processed += 1
-            else:
-                duplicates_to_remove.add(image.name)
+            hash_name = generate_hash_from_image(image)[:32]
+            if hash_name[:32] in bpy.data.images.keys():
+                duplicates_to_remove.add(hash_name)
+            image.name = hash_name
+            num_processed += 1
 
         for material in bpy.data.materials:
-            for node in material.node_tree.nodes:
-                if node.type == 'TEX_IMAGE' and node.image.name.split(".")[0] in duplicates_to_remove:
-                    node.image = bpy.data.images[node.image.name.split(".")[0]]
+            if material.node_tree:
+                for node in material.node_tree.nodes:
+                    if node.type == 'TEX_IMAGE' and node.image.name.split(".")[0] in duplicates_to_remove:
+                        node.image = bpy.data.images[node.image.name.split(".")[0]]
+            else:
+                continue
 
         # Remove any duplicate images
         for image in bpy.data.images:
@@ -2181,7 +2183,7 @@ class RenameTexturesByHash(bpy.types.Operator):
 
         if len(bpy.data.images) > 0: 
             display_msg_box(
-                f'Renamed {num_processed} texture(s).\nRemoved {str(num_dupes_removed)} duplicate texture(s).', 'Info', 'INFO')
+                f'Renamed {num_processed} texture(s).\nRemoved {str(num_dupes_removed)} duplicate textures.', 'Info', 'INFO')
         else:
             display_msg_box(
                 'No textures found.', 'Error', 'ERROR')
