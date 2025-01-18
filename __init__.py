@@ -2139,7 +2139,7 @@ class UpdateBackfaceCulling(bpy.types.Operator):
 # Rename All Textures by Hash
 
 class RenameTexturesByHash(bpy.types.Operator):
-    """Rename ALL textures in this Blender file by generating a unique MD5-generated hash for each texture"""
+    """Rename ALL textures in this Blender file by generating a unique MD5-based hash for each texture"""
     bl_idname = "material.rename_textures_by_hash"
     bl_label = "Rename All Textures by Hash"
     bl_options = {'REGISTER'}
