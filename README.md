@@ -20,7 +20,7 @@ Finding this addon useful? Please consider starring it ⭐, [leaving a review](h
 - **Isolate by Material Trait** - Separates faces that have assigned materials with certain traits, in all selected meshes, to a separate object automatically. Currently, three are supported - Emissive, Transparent, and Animated. An optional setting can automatically move geometry to a dedicated collection for easier finding.
 - **Find/Copy/Paste Active Face Texture** - Allows you to quickly find, copy, and paste the diffuse texture of the currently active or last selected face. The Find operator loads the texture in the Image Editor. All 3 operators be found by search and assigned to your Quick Favorites for easy access, or accessed via Blender's Image Editor's "Image" menu
 - **Copy Diffuse Texture to Material Name** - Finds the diffuse texture in all materials, in all selected objects, and if one is found, the diffuse texture's name is copied to its material's name. Can be accessed from the UV Editor's "Image" menu. If multiple textures are found in the material, all of their names are appended to the material's name.
-= **Rename All Textures by Hash** - Renames ALL textures in the Blender file by generating a unique MD5-based hash for each texture. Can be found in the "Image" menu of the UV Editor or Image Editor.
+- **Rename All Textures by Hash** - Renames ALL textures in the Blender file by generating a unique MD5-based hash for each texture. Can be found in the "Image" menu of the UV Editor or Image Editor.
 
 
 ## Installation
