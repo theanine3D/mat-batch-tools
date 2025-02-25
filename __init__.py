@@ -6,7 +6,7 @@ bl_info = {
     "name": "Material Batch Tools",
     "description": "Batch tools for quickly modifying, copying, and pasting nodes on all materials in selected objects",
     "author": "Theanine3D",
-    "version": (2, 1, 2),
+    "version": (2, 2, 0),
     "blender": (3, 0, 0),
     "category": "Material",
     "location": "Properties -> Material Properties",
@@ -915,6 +915,17 @@ class UnifyNodeSettings(bpy.types.Operator):
 
                                             else:
                                                 valid_nodes.append(node)
+
+                                    # Special operations for 'RGB Curves' node - storing template curve data for later
+                                    template_curve_data = [[],[],[],[]]
+                                    template_curve_handle_types = [[],[],[],[]]
+                                    if node.type == 'CURVE_RGB':
+                                        curve_index = 0
+                                        for curve in template_node.mapping.curves:
+                                            for point in curve.points:
+                                                template_curve_data[curve_index].append(tuple(point.location))
+                                                template_curve_handle_types[curve_index].append(point.handle_type)
+                                            curve_index += 1
                                                 
                                     for node in valid_nodes:
 
@@ -946,15 +957,52 @@ class UnifyNodeSettings(bpy.types.Operator):
                                         for prop in new_property_list:
                                             setattr(
                                                 node, prop, eval(f"template_node.{prop}"))
+
+                                        # Special operations for 'RGB Curves' node - copying template curve data over
+                                        if template_node.type == 'CURVE_RGB' and node.type == 'CURVE_RGB':
+                                            curve_index = 0
+                                            for curve in node.mapping.curves:
+
+                                                # Clear the points first
+                                                point_count = len(curve.points)
+                                                for index in list(range(0,point_count)):
+                                                    try:
+                                                        curve.points.remove(curve.points[index])
+                                                    except:
+                                                        continue
+                                                
+                                                # Check if the point counts are the same. If not, we need to add new points
+                                                point_count_difference = abs(len(curve.points) - len(template_curve_data[curve_index]))
+                                                if point_count_difference > 0:
+                                                    for index in range(0, point_count_difference):
+                                                        curve.points.new(1,1)
+
+                                                point_index = 0
+                                                for point in curve.points:
+                                                    point.location = template_curve_data[curve_index][point_index]
+                                                    point.handle_type = template_curve_handle_types[curve_index][point_index]
+                                                    point_index += 1
+
+                                                curve_index += 1
+                                            node.mapping.use_clip = template_node.mapping.use_clip
+                                            node.mapping.clip_min_x = template_node.mapping.clip_min_x
+                                            node.mapping.clip_min_y = template_node.mapping.clip_min_y
+                                            node.mapping.clip_max_x = template_node.mapping.clip_max_x
+                                            node.mapping.clip_max_y = template_node.mapping.clip_max_y
+                                            node.mapping.update()
+                                                
                     else:
                         display_msg_box(
                             "You haven't set a a template yet. Use the Set as Template button to set one.", "Error", "ERROR")
+                        return {'FINISHED'}
             else:
                 display_msg_box(
                     "The template node no longer exists. Use the Set as Template button set a new one", "Error", "ERROR")
+                return {'FINISHED'}
         else:
             display_msg_box(
                 "The template node's parent material no longer exists. Use the Set as Template button set a new one", "Error", "ERROR")
+            return {'FINISHED'}
         
         display_msg_box(
             f'Applied unified node settings in {num_processed} object(s).', 'Info', 'INFO')
@@ -2139,7 +2187,7 @@ class UpdateBackfaceCulling(bpy.types.Operator):
 # Rename All Textures by Hash
 
 class RenameTexturesByHash(bpy.types.Operator):
-    """Rename ALL textures in this Blender file by generating a unique MD5-based hash for each texture"""
+    """Rename ALL textures in this Blender file by generating a unique MD5-generated hash for each texture"""
     bl_idname = "material.rename_textures_by_hash"
     bl_label = "Rename All Textures by Hash"
     bl_options = {'REGISTER'}
@@ -2506,6 +2554,8 @@ def unregister():
         bpy.utils.unregister_class(cls)
 
     del bpy.types.Scene.MatBatchProperties
+
+    bpy.types.IMAGE_MT_image.remove(imageeditor_menu_func)
 
 
 if __name__ == "__main__":
