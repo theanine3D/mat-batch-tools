@@ -919,7 +919,7 @@ class UnifyNodeSettings(bpy.types.Operator):
                                     # Special operations for 'RGB Curves' node - storing template curve data for later
                                     template_curve_data = [[],[],[],[]]
                                     template_curve_handle_types = [[],[],[],[]]
-                                    if node.type == 'CURVE_RGB':
+                                    if 'CURVE' in node.type:
                                         curve_index = 0
                                         for curve in template_node.mapping.curves:
                                             for point in curve.points:
@@ -958,8 +958,8 @@ class UnifyNodeSettings(bpy.types.Operator):
                                             setattr(
                                                 node, prop, eval(f"template_node.{prop}"))
 
-                                        # Special operations for 'RGB Curves' node - copying template curve data over
-                                        if template_node.type == 'CURVE_RGB' and node.type == 'CURVE_RGB':
+                                        # Special operations for curves nodes - copying template curve data over
+                                        if 'CURVE' in template_node.type and 'CURVE' in node.type:
                                             curve_index = 0
                                             for curve in node.mapping.curves:
 
