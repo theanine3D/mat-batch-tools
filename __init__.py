@@ -916,7 +916,7 @@ class UnifyNodeSettings(bpy.types.Operator):
                                             else:
                                                 valid_nodes.append(node)
 
-                                    # Special operations for 'RGB Curves' node - storing template curve data for later
+                                    # Special operations for curve nodes - storing template curve data for later
                                     template_curve_data = [[],[],[],[]]
                                     template_curve_handle_types = [[],[],[],[]]
                                     if 'CURVE' in node.type:
@@ -926,6 +926,17 @@ class UnifyNodeSettings(bpy.types.Operator):
                                                 template_curve_data[curve_index].append(tuple(point.location))
                                                 template_curve_handle_types[curve_index].append(point.handle_type)
                                             curve_index += 1
+                                    else:
+                                        del template_curve_data
+                                        del template_curve_handle_types
+
+                                    # Special operations for color ramp nodes - storing template gradient data for later
+                                    template_ramp_data = []
+                                    if 'VALTORGB' in node.type:
+                                        for stop in template_node.color_ramp.elements:
+                                            template_ramp_data.append((stop.position, tuple(stop.color)))
+                                    else:
+                                        del template_ramp_data
                                                 
                                     for node in valid_nodes:
 
@@ -958,12 +969,12 @@ class UnifyNodeSettings(bpy.types.Operator):
                                             setattr(
                                                 node, prop, eval(f"template_node.{prop}"))
 
-                                        # Special operations for curves nodes - copying template curve data over
+                                        # Special operations for curve nodes - copying template curve data over
                                         if 'CURVE' in template_node.type and 'CURVE' in node.type:
                                             curve_index = 0
                                             for curve in node.mapping.curves:
 
-                                                # Clear the points first
+                                                # Clear the existing points first
                                                 point_count = len(curve.points)
                                                 for index in list(range(0,point_count)):
                                                     try:
@@ -990,7 +1001,33 @@ class UnifyNodeSettings(bpy.types.Operator):
                                             node.mapping.clip_max_x = template_node.mapping.clip_max_x
                                             node.mapping.clip_max_y = template_node.mapping.clip_max_y
                                             node.mapping.update()
-                                                
+                                        
+                                        # Special operations for color ramp nodes - copying template gradient data over
+                                        if 'VALTORGB' in template_node.type and 'VALTORGB' in node.type:
+                                            # Clear the existing points first
+                                            stop_count = len(node.color_ramp.elements)
+                                            for index in list(range(0,stop_count)):
+                                                try:
+                                                    node.color_ramp.elements.remove(node.color_ramp.elements[index])
+                                                except:
+                                                    continue
+
+                                            # Check if the stop counts are the same. If not, we need to add new points.
+                                            stop_count_difference = abs(len(node.color_ramp.elements) - len(template_ramp_data))
+                                            if stop_count_difference > 0:
+                                                for index in range(0,stop_count_difference):
+                                                    node.color_ramp.elements.new(1.0)
+
+                                            stop_index = 0
+                                            for stop in node.color_ramp.elements:
+                                                stop.position = template_ramp_data[stop_index][0]
+                                                stop.color = template_ramp_data[stop_index][1]
+                                                stop_index += 1
+                                            
+                                            node.color_ramp.color_mode = template_node.color_ramp.color_mode
+                                            node.color_ramp.hue_interpolation = template_node.color_ramp.hue_interpolation
+                                            node.color_ramp.elements.update()
+                                           
                     else:
                         display_msg_box(
                             "You haven't set a a template yet. Use the Set as Template button to set one.", "Error", "ERROR")
